@@ -51,9 +51,10 @@
 #define DEBUG_OP_printf(...) (void)0
 #endif
 
+mp_obj_dict_t mp_active_dict_mains[MICROPY_NUM_CORES];
 const mp_obj_module_t mp_module___main__ = {
     .base = { &mp_type_module },
-    .globals = (mp_obj_dict_t*)&MP_STATE_VM(dict_main),
+    .globals = (mp_obj_dict_t*)&mp_active_dict_mains[MICROPY_REPL_CORE],
 };
 
 void mp_init(void) {
@@ -95,10 +96,12 @@ void mp_init(void) {
     // initialise the __main__ module
     mp_obj_dict_init(&MP_STATE_VM(dict_main), 1);
     mp_obj_dict_store(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)), MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR___main__));
+    mp_context_refresh();
 
     // locals = globals for outer module (see Objects/frameobject.c/PyFrame_New())
     mp_locals_set(&MP_STATE_VM(dict_main));
     mp_globals_set(&MP_STATE_VM(dict_main));
+    mp_context_refresh();
 
     #if MICROPY_CAN_OVERRIDE_BUILTINS
     // start with no extensions to builtins

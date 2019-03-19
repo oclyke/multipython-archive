@@ -42,3 +42,9 @@ user.props
 # Generated rst files
 ######################
 genrst/
+
+#MacOS
+*.DS_Store
+
+# VSCode
+.vscode/*

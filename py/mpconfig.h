@@ -110,6 +110,20 @@
 #endif
 
 /*****************************************************************************/
+/* Multi-core configuration                                                  */
+#ifndef MICROPY_NUM_CORES
+#define MICROPY_NUM_CORES (1)
+#endif
+
+#ifndef MICROPY_GET_CORE_INDEX
+#define MICROPY_GET_CORE_INDEX (0)
+#endif
+
+#ifndef MICROPY_REPL_CORE
+#define MICROPY_REPL_CORE (0)
+#endif
+
+/*****************************************************************************/
 /* Memory allocation policy                                                  */
 
 // Number of bytes in memory allocation/GC block. Any size allocated will be

@@ -40,6 +40,8 @@
 #include "lib/utils/pyexec.h"
 #include "mphalport.h"
 
+#include "service_nus.h"
+
 TaskHandle_t mp_main_task_handle;
 
 STATIC uint8_t stdin_ringbuf_array[256];
@@ -66,9 +68,11 @@ void mp_hal_stdout_tx_strn(const char *str, uint32_t len) {
     if (release_gil) {
         MP_THREAD_GIL_EXIT();
     }
-    for (uint32_t i = 0; i < len; ++i) {
+    for (uint32_t i = 0; i < len; ++i) {    // Send via UART
         uart_tx_one_char(str[i]);
     }
+    nus_rx_notify( str, len );              // Send via BLE NUS
+
     if (release_gil) {
         MP_THREAD_GIL_ENTER();
     }
@@ -115,6 +119,11 @@ void mp_hal_delay_ms(uint32_t ms) {
             break;
         }
         MICROPY_EVENT_POLL_HOOK
+        if( (MP_STATE_VM(sched_state) == MP_SCHED_IDLE) ){
+            t1 = esp_timer_get_time();
+            dt = t1 - t0;
+            vTaskDelay( ((us - dt)/1000) / portTICK_PERIOD_MS ); // since scheduler is idle we can vTaskDelay
+        }
         ulTaskNotifyTake(pdFALSE, 1);
     }
     if (dt < us) {

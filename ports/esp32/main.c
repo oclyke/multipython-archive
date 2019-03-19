@@ -53,6 +53,9 @@
 #include "modnetwork.h"
 #include "mpthreadport.h"
 
+#include "mpstate_spiram.h"
+#include "modmach1.h"
+
 // MicroPython runs as a task under FreeRTOS
 #define MP_TASK_PRIORITY        (ESP_TASK_PRIO_MIN + 1)
 #define MP_TASK_STACK_SIZE      (16 * 1024)
@@ -64,35 +67,54 @@ int vprintf_null(const char *format, va_list ap) {
 }
 
 void mp_task(void *pvParameter) {
+    // Main task has special treatment b/c the state is not dynamically allocated
+    // Normally all that is required is to call mp_task_register with the ID and args
+    uint32_t mp_task_id = mp_current_tIDs[MICROPY_GET_CORE_INDEX];
+    mp_context_head->id = mp_task_id;
+    mp_context_switch(mp_context_head);
+
     volatile uint32_t sp = (uint32_t)get_sp();
     #if MICROPY_PY_THREAD
     mp_thread_init(pxTaskGetStackStart(NULL), MP_TASK_STACK_LEN);
     #endif
     uart_init();
 
-    #if CONFIG_SPIRAM_SUPPORT
-    // Try to use the entire external SPIRAM directly for the heap
     size_t mp_task_heap_size;
-    void *mp_task_heap = (void*)0x3f800000;
+    void *mp_task_heap = NULL;
+    #if CONFIG_SPIRAM_SUPPORT
     switch (esp_spiram_get_chip_size()) {
         case ESP_SPIRAM_SIZE_16MBITS:
-            mp_task_heap_size = 2 * 1024 * 1024;
+            // mp_task_heap_size = 2 * 1024 * 1024;
+            mp_task_heap_size = 256 * 1024;
             break;
         case ESP_SPIRAM_SIZE_32MBITS:
         case ESP_SPIRAM_SIZE_64MBITS:
-            mp_task_heap_size = 4 * 1024 * 1024;
+            // mp_task_heap_size = 4 * 1024 * 1024;
+            mp_task_heap_size = 256 * 1024;
             break;
         default:
             // No SPIRAM, fallback to normal allocation
-            mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-            mp_task_heap = malloc(mp_task_heap_size);
+            // mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+            // mp_task_heap = malloc(mp_task_heap_size); // todo: make heap size configurable or "extendable"
+            mp_task_heap_size = 64000;
             break;
     }
+    mp_task_heap = mp_task_alloc_heap_caps( mp_task_heap_size, mp_current_tIDs[MICROPY_GET_CORE_INDEX], MALLOC_CAP_SPIRAM ); // todo: make heap size configurable or "extendable"
     #else
     // Allocate the uPy heap using malloc and get the largest available region
-    size_t mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-    void *mp_task_heap = malloc(mp_task_heap_size);
+    // size_t mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+    mp_task_heap_size = 64000;
+    mp_task_heap = mp_task_alloc( mp_task_heap_size, mp_current_tIDs[MICROPY_GET_CORE_INDEX] );
     #endif
+    
+    if( mp_task_heap == NULL ){
+        printf("Could not allocate memory for task. aborting\n");
+        while(1){
+            printf("You oughtaa fix this... are you trying to use SPIRAM? have you lowered the mp_task_heap_size value?\n");
+            vTaskDelay(1000 / portTICK_RATE_MS );
+        }
+    }
+
 
 soft_reset:
     // initialise the stack pointer for the main thread
@@ -104,7 +126,10 @@ soft_reset:
     mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR_));
     mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR__slash_lib));
     mp_obj_list_init(mp_sys_argv, 0);
+    mp_context_refresh();
     readline_init0();
+
+    // todo: add hook for ports to stop all other running contexts when rebooting
 
     // initialise peripherals
     machine_pins_init();
@@ -128,6 +153,7 @@ soft_reset:
                 break;
             }
         }
+        // todo: make sure REPL task does not starve IDLE0 task (b/c IDLE0 task cleans up memory from dead tasks)
     }
 
     machine_timer_deinit_all();
@@ -149,9 +175,17 @@ soft_reset:
     goto soft_reset;
 }
 
+extern void ble_server_begin( void );
 void app_main(void) {
     nvs_flash_init();
-    xTaskCreate(mp_task, "mp_task", MP_TASK_STACK_LEN, NULL, MP_TASK_PRIORITY, &mp_main_task_handle);
+
+    esp_efuse_mac_get_default(mach1_chip_id);
+    snprintf(mach1_device_name, MACH1_DEVICE_NAME_MAX_LEN, "Mach1_LED_%02X.%02X.%02X.%02X.%02X.%02X", mach1_chip_id[0], mach1_chip_id[1], mach1_chip_id[2], mach1_chip_id[3], mach1_chip_id[4], mach1_chip_id[5] );
+    printf("Hello from %s\n", mach1_device_name);
+
+    ble_server_begin();
+
+    xTaskCreatePinnedToCore(mp_task, "mp_task", MP_TASK_STACK_LEN, NULL, MP_TASK_PRIORITY, &mp_main_task_handle, MICROPY_REPL_CORE );
 }
 
 void nlr_jump_fail(void *val) {

@@ -395,6 +395,7 @@ STATIC void set_sys_argv(char *argv[], int argc, int start_arg) {
     for (int i = start_arg; i < argc; i++) {
         mp_obj_list_append(mp_sys_argv, MP_OBJ_NEW_QSTR(qstr_from_str(argv[i])));
     }
+    mp_context_refresh();
 }
 
 #ifdef _WIN32
@@ -406,6 +407,7 @@ STATIC void set_sys_argv(char *argv[], int argc, int start_arg) {
 MP_NOINLINE int main_(int argc, char **argv);
 
 int main(int argc, char **argv) {
+    mp_context_switch(mp_context_head);
     #if MICROPY_PY_THREAD
     mp_thread_init();
     #endif
@@ -507,6 +509,7 @@ MP_NOINLINE int main_(int argc, char **argv) {
     }
 
     mp_obj_list_init(MP_OBJ_TO_PTR(mp_sys_argv), 0);
+    mp_context_refresh();
 
     #if defined(MICROPY_UNIX_COVERAGE)
     {

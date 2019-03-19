@@ -1,4 +1,24 @@
-[![Build Status](https://travis-ci.org/micropython/micropython.png?branch=master)](https://travis-ci.org/micropython/micropython) [![Coverage Status](https://coveralls.io/repos/micropython/micropython/badge.png?branch=master)](https://coveralls.io/r/micropython/micropython?branch=master)
+The MultiPython Project
+=======================
+Determined to find an easy way to interact with devices we've created MultiPython based on MicroPython.
+
+The advantage is that additional code can be executed alongside existing code using cooperative multitasking. Separate exectution environments means that programs will not have namespace conflicts. 
+
+See readme below for information on the foundation - [MicroPython](https://github.com/micropython/micropython). 
+
+
+
+#### Trouble Compiling for Unix on Mac? (ffi.h)
+This [issue](https://github.com/micropython/micropython/issues/253) shows how to fix it
+```brew link libffi``` - tells you what to do
+```export PKG_CONFIG_PATH="/usr/local/opt/libffi/lib/pkgconfig"``` - is more or less what you need to do (make sure that exported variable is accessible in the shell that you plan to use)
+
+#### Semaphores Deprecated on Unix for Mac?
+[Check out this pull request](https://github.com/micropython/micropython/pull/4465)
+
+#### Merging From an Upstream Repo
+So, you want to [merge changes from upstream into your lowly fork?](https://help.github.com/en/articles/merging-an-upstream-repository-into-your-fork) 
+
 
 The MicroPython project
 =======================

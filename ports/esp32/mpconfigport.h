@@ -5,6 +5,17 @@
 #include <alloca.h>
 #include "rom/ets_sys.h"
 
+// multi-core configuration
+#define MICROPY_NUM_CORES                   (2)
+#define MICROPY_GET_CORE_INDEX              (xPortGetCoreID())
+#define MICROPY_REPL_CORE                   (1)
+#define MICROPY_MULTIPY_DEFAULT_CORE        (1)
+
+// flash block device sizing 
+// - should take into consideration the partition file in use
+#define MICROPY_FLASHBDEV_START             (0xC60000)
+#define MICROPY_FLASHBDEV_SIZE              (0x2D0000)
+
 // object representation and NLR handling
 #define MICROPY_OBJ_REPR                    (MICROPY_OBJ_REPR_A)
 #define MICROPY_NLR_SETJMP                  (1)
@@ -178,6 +189,13 @@ extern const struct _mp_obj_module_t mp_module_usocket;
 extern const struct _mp_obj_module_t mp_module_machine;
 extern const struct _mp_obj_module_t mp_module_network;
 extern const struct _mp_obj_module_t mp_module_onewire;
+extern const struct _mp_obj_module_t mp_module_multipython;
+extern const struct _mp_obj_module_t mp_module_sdmmc;
+extern const struct _mp_obj_module_t mp_module_artnet;
+extern const struct _mp_obj_module_t mp_module_addressable;
+extern const struct _mp_obj_module_t mp_module_mach1;
+
+// extern const struct _mp_obj_module_t mp_module_ota;
 
 #define MICROPY_PORT_BUILTIN_MODULES \
     { MP_OBJ_NEW_QSTR(MP_QSTR_esp), (mp_obj_t)&esp_module }, \
@@ -189,6 +207,13 @@ extern const struct _mp_obj_module_t mp_module_onewire;
     { MP_OBJ_NEW_QSTR(MP_QSTR_network), (mp_obj_t)&mp_module_network }, \
     { MP_OBJ_NEW_QSTR(MP_QSTR__onewire), (mp_obj_t)&mp_module_onewire }, \
     { MP_OBJ_NEW_QSTR(MP_QSTR_uhashlib), (mp_obj_t)&mp_module_uhashlib }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_multipython), (mp_obj_t)&mp_module_multipython }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_sdmmc), (mp_obj_t)&mp_module_sdmmc }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_artnet), (mp_obj_t)&mp_module_artnet }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_addressable), (mp_obj_t)&mp_module_addressable }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_mach1), (mp_obj_t)&mp_module_mach1 }, \
+
+// { MP_OBJ_NEW_QSTR(MP_QSTR_ota), (mp_obj_t)&mp_module_ota },
 
 #define MICROPY_PORT_BUILTIN_MODULE_WEAK_LINKS \
     { MP_OBJ_NEW_QSTR(MP_QSTR_binascii), (mp_obj_t)&mp_module_ubinascii }, \

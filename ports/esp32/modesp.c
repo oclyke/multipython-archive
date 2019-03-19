@@ -96,9 +96,16 @@ STATIC mp_obj_t esp_flash_size(void) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(esp_flash_size_obj, esp_flash_size);
 
 STATIC mp_obj_t esp_flash_user_start(void) {
-    return MP_OBJ_NEW_SMALL_INT(0x200000);
+    // return MP_OBJ_NEW_SMALL_INT(0x200000);
+    // return MP_OBJ_NEW_SMALL_INT(0x00); // todo: on larger flash memories use the remaining (non ota-image) flash as user flash
+    return MP_OBJ_NEW_SMALL_INT(MICROPY_FLASHBDEV_START);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(esp_flash_user_start_obj, esp_flash_user_start);
+
+STATIC mp_obj_t esp_flash_user_size(void) {
+    return MP_OBJ_NEW_SMALL_INT(MICROPY_FLASHBDEV_SIZE);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(esp_flash_user_size_obj, esp_flash_user_size);
 
 STATIC mp_obj_t esp_gpio_matrix_in(mp_obj_t pin, mp_obj_t sig, mp_obj_t inv) {
     gpio_matrix_in(mp_obj_get_int(pin), mp_obj_get_int(sig), mp_obj_get_int(inv));
@@ -132,6 +139,7 @@ STATIC const mp_rom_map_elem_t esp_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_flash_erase), MP_ROM_PTR(&esp_flash_erase_obj) },
     { MP_ROM_QSTR(MP_QSTR_flash_size), MP_ROM_PTR(&esp_flash_size_obj) },
     { MP_ROM_QSTR(MP_QSTR_flash_user_start), MP_ROM_PTR(&esp_flash_user_start_obj) },
+    { MP_ROM_QSTR(MP_QSTR_flash_user_size), MP_ROM_PTR(&esp_flash_user_size_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_gpio_matrix_in), MP_ROM_PTR(&esp_gpio_matrix_in_obj) },
     { MP_ROM_QSTR(MP_QSTR_gpio_matrix_out), MP_ROM_PTR(&esp_gpio_matrix_out_obj) },

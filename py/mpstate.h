@@ -35,6 +35,15 @@
 #include "py/obj.h"
 #include "py/objlist.h"
 #include "py/objexcept.h"
+#include "py/parse.h"
+
+#define MP_RESPONSE_QUEUE_SIZE    (256)
+typedef struct _mp_response_t mp_response_t;
+struct _mp_response_t{
+    uint8_t     control_op;
+    mp_obj_t    argument;
+};
+
 
 // This file contains structures defining the state of the MicroPython
 // memory system, runtime and virtual machine.  The state is a global
@@ -254,16 +263,106 @@ typedef struct _mp_state_ctx_t {
     mp_state_mem_t mem;
 } mp_state_ctx_t;
 
-extern mp_state_ctx_t mp_state_ctx;
+typedef struct _mp_context_node_t mp_context_node_t;
 
-#define MP_STATE_VM(x) (mp_state_ctx.vm.x)
-#define MP_STATE_MEM(x) (mp_state_ctx.mem.x)
+typedef struct _mp_context_dynmem_node_t{
+    struct _mp_context_node_t*          context;
+    void*                               mem;
+    size_t                              size;
+    struct _mp_context_dynmem_node_t*   next;
+}mp_context_dynmem_node_t;
+
+typedef struct _mp_task_args_t {
+    mp_parse_input_kind_t   input_kind;
+    void*                   source;
+    uint8_t                 suspend;    // 1 to suspend at startup
+    void*                   addtl;
+}mp_task_args_t;
+
+typedef struct _mp_response_queue_t{
+    mp_response_t buff[MP_RESPONSE_QUEUE_SIZE]; 
+    size_t r_head;
+    size_t w_head;
+}mp_response_queue_t;
+
+size_t mp_response_queue_available( mp_response_queue_t* queue );
+size_t mp_response_queue_peek( mp_response_queue_t* queue, mp_response_t* response );
+size_t mp_response_queue_read( mp_response_queue_t* queue, mp_response_t* response );
+size_t mp_response_queue_write( mp_response_queue_t* queue, mp_response_t response );
+
+struct _mp_context_node_t{
+    uint32_t                    id;
+    int32_t                     status;
+    mp_state_ctx_t*             state;
+    mp_task_args_t              args;
+    void*                       threadctrl;
+    mp_response_queue_t         response_queue;
+    mp_context_dynmem_node_t*   memhead;
+    struct _mp_context_node_t*  next;
+};
+
+#define MP_CNOM             0 // nominal
+#define MP_CSUSP  (0x01 << 0) // suspended
+
+#define MP_STATE_MALLOC(size) (malloc(size))
+#define MP_STATE_FREE(ptr) (free(ptr))
+
+extern mp_obj_dict_t    mp_active_dict_mains[MICROPY_NUM_CORES];
+extern mp_obj_list_t    mp_active_sys_path_objs[MICROPY_NUM_CORES];
+extern mp_obj_list_t    mp_active_sys_argv_objs[MICROPY_NUM_CORES];
+extern mp_obj_dict_t    mp_active_loaded_modules_dicts[MICROPY_NUM_CORES]; 
+
+extern mp_context_node_t*   mp_context_head;
+extern mp_context_node_t*   mp_active_contexts[MICROPY_NUM_CORES];
+extern mp_context_node_t    mp_active_context_mirrors[MICROPY_NUM_CORES];
+extern volatile uint32_t    mp_current_tIDs[MICROPY_NUM_CORES];
+
+void mp_context_refresh( void );
+void mp_context_switch(mp_context_node_t* node);
+
+mp_context_node_t* mp_context_append_new( void );
+void mp_context_remove( mp_context_node_t* node );
+mp_context_node_t* mp_context_by_tid( uint32_t tID );
+
+void mp_dynmem_append( mp_context_dynmem_node_t* node, mp_context_node_t* context );
+
+void* mp_context_dynmem_alloc( size_t size, mp_context_node_t* context );
+int8_t mp_context_dynmem_free( void* mem, mp_context_node_t* context );
+int8_t mp_context_dynmem_free_all( mp_context_node_t* context );
+
+mp_context_node_t* mp_task_register( uint32_t tID, void* args );
+void mp_task_remove( uint32_t tID );
+void mp_task_switched_in( uint32_t tID );
+void* mp_task_alloc( size_t size, uint32_t tID );
+int8_t mp_task_free( void* mem, uint32_t tID );
+
+typedef mp_context_node_t* mp_context_iter_t;
+mp_context_iter_t mp_context_iter_first( mp_context_iter_t head );
+bool mp_context_iter_done( mp_context_iter_t iter );
+mp_context_iter_t mp_context_iter_next( mp_context_iter_t iter );
+void mp_context_foreach(mp_context_iter_t head, void (*f)(mp_context_iter_t iter, void*), void* args);
+
+#define MP_CONTEXT_PTR_FROM_ITER(iter) ((mp_context_node_t*)iter)
+#define MP_ITER_FROM_CONTEXT_PTR(cptr) ((mp_context_iter_t)cptr)
+
+
+typedef mp_context_dynmem_node_t* mp_context_dynmem_iter_t;
+mp_context_dynmem_iter_t mp_dynmem_iter_first( mp_context_dynmem_iter_t head );
+bool mp_dynmem_iter_done( mp_context_dynmem_iter_t iter );
+mp_context_dynmem_iter_t mp_dynmem_iter_next( mp_context_dynmem_iter_t iter );
+void mp_dynmem_foreach(mp_context_dynmem_iter_t head, void (*f)(mp_context_dynmem_iter_t iter, void*), void* args);
+
+#define MP_DYNMEM_PTR_FROM_ITER(iter) ((mp_context_dynmem_node_t*)iter)
+#define MP_ITER_FROM_DYNMEM_PTR(dptr) ((mp_context_dynmem_iter_t)dptr)
+
+#define MP_STATE_VM(x) (mp_active_context_mirrors[MICROPY_GET_CORE_INDEX].state->vm.x)
+#define MP_STATE_MEM(x) (mp_active_context_mirrors[MICROPY_GET_CORE_INDEX].state->mem.x)
 
 #if MICROPY_PY_THREAD
 extern mp_state_thread_t *mp_thread_get_state(void);
 #define MP_STATE_THREAD(x) (mp_thread_get_state()->x)
 #else
-#define MP_STATE_THREAD(x) (mp_state_ctx.thread.x)
+#define MP_STATE_THREAD(x) (mp_active_context_mirrors[MICROPY_GET_CORE_INDEX].state->thread.x)
 #endif
 
 #endif // MICROPY_INCLUDED_PY_MPSTATE_H
