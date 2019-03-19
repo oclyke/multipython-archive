@@ -30,5 +30,24 @@
 mp_dynamic_compiler_t mp_dynamic_compiler = {0};
 #endif
 
-mp_state_ctx_t* p_mp_active_state_ctx;
+void mp_context_switch(mp_context_node_t* node){
+    mp_active_context = *(node);
+    mp_active_dict_main = MP_STATE_VM(dict_main);
+    #if MICROPY_PY_SYS
+    mp_active_loaded_modules_dict = MP_STATE_VM(mp_loaded_modules_dict);
+    // mp_active_sys_path_obj; // ToDo: determine source for these variables
+    // mp_active_sys_argv_obj; // ToDo: determine source for these variables
+    #endif // MICROPY_PY_SYS
+}
+
 mp_state_ctx_t _hidden_mp_state_ctx;
+
+#define MP_DEFAULT_CONTEXT_ID 0 // ToDo: move this into proper configuration files
+mp_context_node_t mp_default_context = {
+    .id = MP_DEFAULT_CONTEXT_ID,
+    .state = &_hidden_mp_state_ctx,
+    .next = NULL,
+};
+
+mp_context_node_t mp_active_context;
+mp_context_node_t* mp_context_head = &mp_default_context;

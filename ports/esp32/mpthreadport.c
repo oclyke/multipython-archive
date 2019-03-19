@@ -57,7 +57,7 @@ STATIC thread_t thread_entry0;
 STATIC thread_t *thread; // root pointer, handled by mp_thread_gc_others
 
 void mp_thread_init(void *stack, uint32_t stack_len) {
-    mp_thread_set_state(&mp_state_ctx.thread);
+    mp_thread_set_state(&mp_active_context.state->thread);
     // create the first entry in the linked list of all threads
     thread = &thread_entry0;
     thread->id = xTaskGetCurrentTaskHandle();

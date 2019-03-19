@@ -406,6 +406,7 @@ STATIC void set_sys_argv(char *argv[], int argc, int start_arg) {
 MP_NOINLINE int main_(int argc, char **argv);
 
 int main(int argc, char **argv) {
+    mp_context_switch(mp_context_head);
     #if MICROPY_PY_THREAD
     mp_thread_init();
     #endif

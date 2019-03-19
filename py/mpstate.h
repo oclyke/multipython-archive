@@ -254,17 +254,30 @@ typedef struct _mp_state_ctx_t {
     mp_state_mem_t mem;
 } mp_state_ctx_t;
 
-extern mp_state_ctx_t _hidden_mp_state_ctx;
-extern mp_state_ctx_t* p_mp_active_state_ctx;
+typedef struct _mp_context_node_t{
+    uint32_t                    id;
+    mp_state_ctx_t*             state;
+    struct _mp_context_node_t*  next;
+}mp_context_node_t;
 
-#define MP_STATE_VM(x) (p_mp_active_state_ctx->vm.x)
-#define MP_STATE_MEM(x) (p_mp_active_state_ctx->mem.x)
+extern mp_context_node_t* mp_context_head;
+extern mp_context_node_t mp_active_context;
+
+extern mp_obj_dict_t mp_active_dict_main;
+extern mp_obj_list_t mp_active_sys_path_obj;
+extern mp_obj_list_t mp_active_sys_argv_obj;
+extern mp_obj_dict_t mp_active_loaded_modules_dict; 
+
+void mp_context_switch(mp_context_node_t* node);
+
+#define MP_STATE_VM(x) (mp_active_context.state->vm.x)
+#define MP_STATE_MEM(x) (mp_active_context.state->mem.x)
 
 #if MICROPY_PY_THREAD
 extern mp_state_thread_t *mp_thread_get_state(void);
 #define MP_STATE_THREAD(x) (mp_thread_get_state()->x)
 #else
-#define MP_STATE_THREAD(x) (p_mp_active_state_ctx->thread.x)
+#define MP_STATE_THREAD(x) (mp_active_context.state->thread.x)
 #endif
 
 #endif // MICROPY_INCLUDED_PY_MPSTATE_H
