@@ -255,15 +255,16 @@ typedef struct _mp_state_ctx_t {
 } mp_state_ctx_t;
 
 extern mp_state_ctx_t _hidden_mp_state_ctx;
+extern mp_state_ctx_t* p_mp_active_state_ctx;
 
-#define MP_STATE_VM(x) (mp_state_ctx.vm.x)
-#define MP_STATE_MEM(x) (mp_state_ctx.mem.x)
+#define MP_STATE_VM(x) (p_mp_active_state_ctx->vm.x)
+#define MP_STATE_MEM(x) (p_mp_active_state_ctx->mem.x)
 
 #if MICROPY_PY_THREAD
 extern mp_state_thread_t *mp_thread_get_state(void);
 #define MP_STATE_THREAD(x) (mp_thread_get_state()->x)
 #else
-#define MP_STATE_THREAD(x) (mp_state_ctx.thread.x)
+#define MP_STATE_THREAD(x) (p_mp_active_state_ctx->thread.x)
 #endif
 
 #endif // MICROPY_INCLUDED_PY_MPSTATE_H
