@@ -30,4 +30,5 @@
 mp_dynamic_compiler_t mp_dynamic_compiler = {0};
 #endif
 
+mp_state_ctx_t* p_mp_active_state_ctx;
 mp_state_ctx_t _hidden_mp_state_ctx;
