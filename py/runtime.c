@@ -51,9 +51,10 @@
 #define DEBUG_OP_printf(...) (void)0
 #endif
 
+mp_obj_dict_t mp_active_dict_main;
 const mp_obj_module_t mp_module___main__ = {
     .base = { &mp_type_module },
-    .globals = (mp_obj_dict_t*)&MP_STATE_VM(dict_main),
+    .globals = (mp_obj_dict_t*)&mp_active_dict_main,
 };
 
 void mp_init(void) {
