@@ -145,6 +145,7 @@ size_t mp_repl_autocomplete(const char *str, size_t len, const mp_print_t *print
     size_t nqstr = QSTR_TOTAL();
 
     // begin search in outer global dict which is accessed from __main__
+    mp_context_refresh();
     mp_obj_t obj = MP_OBJ_FROM_PTR(&mp_module___main__);
     mp_obj_t dest[2];
 

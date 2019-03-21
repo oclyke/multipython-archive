@@ -268,6 +268,7 @@ extern mp_obj_list_t mp_active_sys_path_obj;
 extern mp_obj_list_t mp_active_sys_argv_obj;
 extern mp_obj_dict_t mp_active_loaded_modules_dict; 
 
+void mp_context_refresh( void );
 void mp_context_switch(mp_context_node_t* node);
 
 #define MP_STATE_VM(x) (mp_active_context.state->vm.x)

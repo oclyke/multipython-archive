@@ -189,6 +189,7 @@ MP_NOINLINE int main_(int argc, char **argv) {
 #endif
     mp_obj_list_init(mp_sys_path, 0);
     mp_obj_list_init(mp_sys_argv, 0);
+    mp_context_refresh();
 
     // set default compiler configuration
     mp_dynamic_compiler.small_int_bits = 31;

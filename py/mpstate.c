@@ -25,6 +25,7 @@
  */
 
 #include "py/mpstate.h"
+#include <string.h>
 
 #if MICROPY_DYNAMIC_COMPILER
 mp_dynamic_compiler_t mp_dynamic_compiler = {0};
@@ -32,11 +33,15 @@ mp_dynamic_compiler_t mp_dynamic_compiler = {0};
 
 void mp_context_switch(mp_context_node_t* node){
     mp_active_context = *(node);
+    mp_context_refresh();
+}
+
+void mp_context_refresh( void ){
     mp_active_dict_main = MP_STATE_VM(dict_main);
     #if MICROPY_PY_SYS
     mp_active_loaded_modules_dict = MP_STATE_VM(mp_loaded_modules_dict);
-    // mp_active_sys_path_obj = (mp_obj_list_t)mp_sys_path; // ToDo: copy 'mp_sys_path' into 'mp_active_sys_path'
-    // mp_active_sys_argv_obj = (mp_obj_list_t)mp_sys_argv; // ToDo: copy 'mp_sys_path' into 'mp_active_sys_path'
+    memcpy((void*)&mp_active_sys_path_obj, (void*)&MP_STATE_VM(mp_sys_path_obj), sizeof(mp_obj_list_t));
+    memcpy((void*)&mp_active_sys_argv_obj, (void*)&MP_STATE_VM(mp_sys_argv_obj), sizeof(mp_obj_list_t));
     #endif // MICROPY_PY_SYS
 }
 
