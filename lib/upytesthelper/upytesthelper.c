@@ -95,6 +95,7 @@ void upytest_execute_test(const char *src) {
     mp_init();
     mp_obj_list_init(mp_sys_path, 0);
     mp_obj_list_init(mp_sys_argv, 0);
+    mp_context_refresh();
 
     nlr_buf_t nlr;
     if (nlr_push(&nlr) == 0) {

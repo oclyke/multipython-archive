@@ -96,17 +96,17 @@ void mp_init(void) {
     // initialise the __main__ module
     mp_obj_dict_init(&MP_STATE_VM(dict_main), 1);
     mp_obj_dict_store(MP_OBJ_FROM_PTR(&MP_STATE_VM(dict_main)), MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR___main__));
+    mp_context_refresh();
 
     // locals = globals for outer module (see Objects/frameobject.c/PyFrame_New())
     mp_locals_set(&MP_STATE_VM(dict_main));
     mp_globals_set(&MP_STATE_VM(dict_main));
+    mp_context_refresh();
 
     #if MICROPY_CAN_OVERRIDE_BUILTINS
     // start with no extensions to builtins
     MP_STATE_VM(mp_module_builtins_override_dict) = NULL;
     #endif
-
-    mp_context_refresh();
 
     #if MICROPY_PY_OS_DUPTERM
     for (size_t i = 0; i < MICROPY_PY_OS_DUPTERM; ++i) {

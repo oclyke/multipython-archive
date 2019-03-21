@@ -395,6 +395,7 @@ STATIC void set_sys_argv(char *argv[], int argc, int start_arg) {
     for (int i = start_arg; i < argc; i++) {
         mp_obj_list_append(mp_sys_argv, MP_OBJ_NEW_QSTR(qstr_from_str(argv[i])));
     }
+    mp_context_refresh();
 }
 
 #ifdef _WIN32

@@ -110,6 +110,7 @@ soft_reset:
     mp_obj_list_init(mp_sys_path, 0);
     mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR_)); // current dir (or base dir of the script)
     mp_obj_list_init(mp_sys_argv, 0);
+    mp_context_refresh();
 
     pyb_set_repl_info(MP_OBJ_NEW_SMALL_INT(0));
 
@@ -184,6 +185,7 @@ pin_init0();
             // TODO these should go before the /flash entries in the path
             mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR__slash_sd));
             mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR__slash_sd_slash_lib));
+            mp_context_refresh();
 
 			// use SD card as current directory
 			f_chdrive("/sd");
