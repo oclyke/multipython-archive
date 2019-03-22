@@ -1,4 +1,9 @@
-[![Build Status](https://travis-ci.org/micropython/micropython.png?branch=master)](https://travis-ci.org/micropython/micropython) [![Coverage Status](https://coveralls.io/repos/micropython/micropython/badge.png?branch=master)](https://coveralls.io/r/micropython/micropython?branch=master)
+The MultiPython Project
+=======================
+Determined to find an easy way to interact with devices we've created MultiPython based on MicroPython.
+
+The advantage is that additional code can be executed alongside existing code using cooperative multitasking. Separate exectution environments means that programs will not have namespace conflicts. 
+
 
 The MicroPython project
 =======================
