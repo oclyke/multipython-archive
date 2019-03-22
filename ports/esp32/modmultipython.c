@@ -12,23 +12,6 @@ The multipython module is designed to allow creation and execution of new MicroP
 
 #include "py/mpstate.h"
 
-// extern mp_context_node_t* mp_context_head;
-// extern mp_context_node_t mp_active_context;
-
-// void mp_context_refresh( void );
-// void mp_context_switch(mp_context_node_t* node);
-
-// void mp_task_register( uint32_t tID );
-// void mp_task_switched_in( uint32_t tID );
-
-// typedef mp_context_node_t* mp_context_iter_t;
-// mp_context_iter_t mp_context_iter_first( mp_context_iter_t head );
-// bool mp_context_iter_done( mp_context_iter_t iter );
-// mp_context_iter_t mp_context_iter_next( mp_context_iter_t iter );
-// void mp_context_foreach(mp_context_iter_t head, void (*f)(mp_context_iter_t iter, void*), void* args);
-
-
-
 // Temporary testing functions
 STATIC mp_obj_t multipython_show_context_list( void ) {
     mp_context_iter_t iter = NULL;
