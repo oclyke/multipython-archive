@@ -56,6 +56,11 @@ STATIC thread_t *thread;
 // it's needed because we can't use any pthread calls in a signal handler
 STATIC sem_t thread_signal_done;
 
+#if defined (__APPLE__)
+STATIC sem_t *thread_signal_done_p = &thread_signal_done;
+STATIC char thread_semaphore_name[25];
+#endif
+
 // this signal handler is used to scan the regs and stack of a thread
 STATIC void mp_thread_gc(int signo, siginfo_t *info, void *context) {
     (void)info; // unused
@@ -85,7 +90,12 @@ void mp_thread_init(void) {
     thread->ready = 1;
     thread->arg = NULL;
     thread->next = NULL;
+    #if defined (__APPLE__)
+    snprintf(thread_semaphore_name, sizeof(thread_semaphore_name), "micropython_sem_%d", (int)thread->id);
+    thread_signal_done_p = sem_open(thread_semaphore_name, O_CREAT | O_EXCL, 0666, 1);
+    #else
     sem_init(&thread_signal_done, 0, 0);
+    #endif
 
     // enable signal handler for garbage collection
     struct sigaction sa;
@@ -104,6 +114,10 @@ void mp_thread_deinit(void) {
         free(th);
     }
     pthread_mutex_unlock(&thread_mutex);
+    #if defined (__APPLE__)
+    sem_close(thread_signal_done_p);
+    sem_unlink(thread_semaphore_name);
+    #endif
     assert(thread->id == pthread_self());
     free(thread);
 }
