@@ -26,6 +26,10 @@
 
 #include "py/mpstate.h"
 #include <string.h>
+#include <stdlib.h>
+
+#define MP_STATE_MALLOC(size) (malloc(size))
+#define MP_STATE_FREE(ptr) (free(ptr))
 
 #if MICROPY_DYNAMIC_COMPILER
 mp_dynamic_compiler_t mp_dynamic_compiler = {0};
@@ -45,11 +49,106 @@ void mp_context_refresh( void ){
     #endif // MICROPY_PY_SYS
 }
 
+// context iterator functions
+mp_context_iter_t mp_context_iter_first( mp_context_iter_t head ){ return head; }
+bool mp_context_iter_done( mp_context_iter_t iter ){ return (iter == NULL); }
+mp_context_iter_t mp_context_iter_next( mp_context_iter_t iter ){ return ((mp_context_iter_t)iter->next); }
+void mp_context_foreach(mp_context_iter_t head, void (*f)(mp_context_iter_t iter, void*), void* args){
+    mp_context_iter_t iter = NULL;
+    for( iter = mp_context_iter_first(head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter) ){ 
+        f(iter, args); 
+    }
+}
+
+// context linked list manipulation
+mp_state_ctx_t* mp_new_state( void ){
+    mp_state_ctx_t* state = NULL;
+    state = (mp_state_ctx_t*)MP_STATE_MALLOC(1*sizeof(mp_state_ctx_t));
+    if(state == NULL){ return state; }
+    memset((void*)state, 0x00, sizeof(mp_state_ctx_t));
+    return state;
+}
+
+mp_context_node_t* mp_new_context_node( void ){
+    mp_context_node_t* node = NULL;
+    node = (mp_context_node_t*)MP_STATE_MALLOC(1*sizeof(mp_context_node_t));
+    if(node == NULL){ return node; }
+    memset((void*)node, 0x00, sizeof(mp_context_node_t));
+    return node;
+}
+
+mp_context_node_t* mp_context_by_tid( uint32_t tID ){
+    mp_context_iter_t iter = NULL;
+    for( iter = mp_context_iter_first(MP_ITER_FROM_CONTEXT_PTR(mp_context_head)); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter) ){
+        if(MP_CONTEXT_PTR_FROM_ITER(iter)->id == tID){ break; }
+    }
+    return MP_CONTEXT_PTR_FROM_ITER(iter);
+}
+
+mp_context_node_t* mp_context_predecessor( mp_context_node_t* successor ){
+    mp_context_iter_t iter = NULL;
+    for( iter = mp_context_iter_first(MP_ITER_FROM_CONTEXT_PTR(mp_context_head)); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter) ){
+        if(MP_CONTEXT_PTR_FROM_ITER(iter)->next == successor){ break; }
+    }
+    return MP_CONTEXT_PTR_FROM_ITER(iter);
+}
+
+mp_context_node_t* mp_context_tail( void ){
+    return mp_context_predecessor(NULL);
+}
+
+void mp_context_append( mp_context_node_t* node ){
+    mp_context_node_t* tail = mp_context_tail();
+    if(tail == NULL){ return; }
+    tail->next = node;
+    node->next = NULL;
+}
+
+void mp_context_remove( mp_context_node_t* node ){
+    mp_context_node_t* predecessor = mp_context_predecessor(node);
+    if( predecessor == NULL ){ return; }
+    mp_context_node_t* successor = NULL;
+    successor = node->next;
+    predecessor->next = successor;
+    MP_STATE_FREE(node->state);
+    MP_STATE_FREE(node);
+}
+
+void mp_task_register( uint32_t tID ){
+    mp_context_node_t* node = NULL;
+    node = mp_context_by_tid( tID );
+    if( node != NULL ){ return; } // can't register the same task ID
+    node = mp_new_context_node();
+    if( node == NULL ){ return; } // no heap
+    mp_state_ctx_t* state = mp_new_state();
+    if( state == NULL ){ 
+        MP_STATE_FREE(node);
+        return; // no heap
+    }
+    node->id = tID;
+    node->state = state;
+    node->next = NULL;
+    mp_context_append(node);
+}
+
+void mp_task_remove( uint32_t tID ){
+    mp_context_node_t* node = NULL;
+    node = mp_context_by_tid( tID );
+    if( node == NULL ){ return; }
+    mp_context_remove(node);
+}
+
+void mp_task_switched_in( uint32_t tID ){
+    mp_context_node_t* node = mp_context_by_tid( tID );
+    if(node == NULL){ return; }
+    mp_context_switch(node);
+}
+
+// globals
 mp_state_ctx_t _hidden_mp_state_ctx;
 
-#define MP_DEFAULT_CONTEXT_ID 0 // ToDo: move this into proper configuration files
 mp_context_node_t mp_default_context = {
-    .id = MP_DEFAULT_CONTEXT_ID,
+    .id = MP_CONTEXT_DEFAULT_ID,
     .state = &_hidden_mp_state_ctx,
     .next = NULL,
 };

@@ -260,16 +260,30 @@ typedef struct _mp_context_node_t{
     struct _mp_context_node_t*  next;
 }mp_context_node_t;
 
-extern mp_context_node_t* mp_context_head;
-extern mp_context_node_t mp_active_context;
-
 extern mp_obj_dict_t mp_active_dict_main;
 extern mp_obj_list_t mp_active_sys_path_obj;
 extern mp_obj_list_t mp_active_sys_argv_obj;
 extern mp_obj_dict_t mp_active_loaded_modules_dict; 
 
+extern mp_context_node_t* mp_context_head;
+extern mp_context_node_t mp_active_context;
+
 void mp_context_refresh( void );
 void mp_context_switch(mp_context_node_t* node);
+
+void mp_task_register( uint32_t tID );
+void mp_task_remove( uint32_t tID );
+void mp_task_switched_in( uint32_t tID );
+
+typedef mp_context_node_t* mp_context_iter_t;
+mp_context_iter_t mp_context_iter_first( mp_context_iter_t head );
+bool mp_context_iter_done( mp_context_iter_t iter );
+mp_context_iter_t mp_context_iter_next( mp_context_iter_t iter );
+void mp_context_foreach(mp_context_iter_t head, void (*f)(mp_context_iter_t iter, void*), void* args);
+
+#define MP_CONTEXT_DEFAULT_ID 0 // ToDo: move this into proper configuration files
+#define MP_CONTEXT_PTR_FROM_ITER(iter) ((mp_context_node_t*)iter)
+#define MP_ITER_FROM_CONTEXT_PTR(cptr) ((mp_context_iter_t)cptr)
 
 #define MP_STATE_VM(x) (mp_active_context.state->vm.x)
 #define MP_STATE_MEM(x) (mp_active_context.state->mem.x)
