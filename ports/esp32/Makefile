@@ -39,6 +39,7 @@ $(info See README.md for installation instructions.)
 $(info Supported git hash: $(ESPIDF_SUPHASH))
 $(error ESPIDF not set)
 endif
+$(info The ESPIDF variable is already set to $(ESPIDF))
 endif
 ESPCOMP = $(ESPIDF)/components
 ESPTOOL ?= $(ESPCOMP)/esptool_py/esptool/esptool.py
@@ -111,6 +112,13 @@ INC_ESPCOMP += -I$(ESPCOMP)/app_trace/include
 INC_ESPCOMP += -I$(ESPCOMP)/app_update/include
 INC_ESPCOMP += -I$(ESPCOMP)/pthread/include
 INC_ESPCOMP += -I$(ESPCOMP)/smartconfig_ack/include
+INC_ESPCOMP += -I$(ESPCOMP)/efuse/include
+INC_ESPCOMP += -I$(ESPCOMP)/efuse/esp32/include
+INC_ESPCOMP += -I$(ESPCOMP)/efuse/src
+INC_ESPCOMP += -I$(ESPCOMP)/espcoredump/include
+INC_ESPCOMP += -I$(ESPCOMP)/espcoredump/include_core_dump
+INC_ESPCOMP += -I$(ESPCOMP)/esp_event/include
+INC_ESPCOMP += -I$(ESPCOMP)/esp_event/private_include
 
 # these flags are common to C and C++ compilation
 CFLAGS_COMMON = -Os -ffunction-sections -fdata-sections -fstrict-volatile-bitfields \
@@ -133,7 +141,7 @@ LDFLAGS += -u call_user_start_cpu0 -u uxTopUsedPriority -u ld_include_panic_high
 LDFLAGS += -u __cxa_guard_dummy # so that implementation of static guards is taken from cxx_guards.o instead of libstdc++.a
 LDFLAGS += -L$(ESPCOMP)/esp32/ld
 LDFLAGS += -T $(BUILD)/esp32_out.ld
-LDFLAGS += -T $(BUILD)/esp32.common.ld
+LDFLAGS += -T $(BUILD)/esp32.project.ld
 LDFLAGS += -T esp32.rom.ld
 LDFLAGS += -T esp32.rom.libgcc.ld
 LDFLAGS += -T esp32.peripherals.ld
@@ -263,6 +271,13 @@ ESPIDF_DRIVER_O = $(addprefix $(ESPCOMP)/driver/,\
 	rtc_module.o \
 	)
 
+ESPIDF_EFUSE_O = $(addprefix $(ESPCOMP)/efuse, \
+	esp32/esp_efuse_table.o \
+	src/esp_efuse_api.o \
+	src/esp_efuse_fields.o \
+	src/esp_efuse_utility.o \
+)
+
 $(BUILD)/$(ESPCOMP)/esp32/dport_access.o: CFLAGS += -Wno-array-bounds
 ESPIDF_ESP32_O = $(addprefix $(ESPCOMP)/esp32/,\
 	brownout.o \
@@ -280,18 +295,15 @@ ESPIDF_ESP32_O = $(addprefix $(ESPCOMP)/esp32/,\
 	esp_timer.o \
 	esp_timer_esp32.o \
 	ets_timer_legacy.o \
-	event_default_handlers.o \
 	fast_crypto_ops.o \
 	task_wdt.o \
 	cache_err_int.o \
 	clk.o \
-	core_dump.o \
 	cpu_start.o \
 	gdbstub.o \
 	crosscore_int.o \
 	ipc.o \
 	int_wdt.o \
-	event_loop.o \
 	hwcrypto/sha.o \
 	hwcrypto/aes.o \
 	lib_printf.o \
@@ -304,10 +316,25 @@ ESPIDF_ESP32_O = $(addprefix $(ESPCOMP)/esp32/,\
 	intr_alloc.o \
 	dport_access.o \
 	wifi_init.o \
-	wifi_os_adapter.o \
+	esp_adapter.o \
 	sleep_modes.o \
 	spiram.o \
 	spiram_psram.o \
+	)
+
+ESPIDF_ESPCOREDUMP_O = $(addprefix $(ESPCOMP)/espcoredump/, \
+	src/core_dump_common.o \
+	src/core_dump_flash.o \
+	src/core_dump_port.o \
+	src/core_dump_uart.o \
+	)
+
+ESPIDF_ESP_EVENT_O = $(addprefix $(ESPCOMP)/esp_event/, \
+	default_event_loop.o \
+	esp_event_private.o \
+	esp_event.o \
+	event_default_handlers.o \
+	event_loop.o \
 	)
 
 ESPIDF_ESP_RINGBUF_O = $(addprefix $(ESPCOMP)/esp_ringbuf/,\
@@ -669,7 +696,10 @@ ESPIDF_WPA_SUPPLICANT_O = $(addprefix $(ESPCOMP)/wpa_supplicant/,\
 OBJ_ESPIDF =
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_NEWLIB_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_DRIVER_O))
+OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_EFUSE_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_ESP32_O))
+OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_ESPCOREDUMP_O))
+OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_ESP_EVENT_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_ESP_RINGBUF_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_HEAP_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_SOC_O))
@@ -785,7 +815,7 @@ $(eval $(foreach lib,$(LIB_ESPIDF),$(eval $(call gen_sections_info_rule,$(BUILD_
 $(LDGEN_SECTION_INFOS): $(LDGEN_SECTIONS_INFO) $(ESPIDF)/make/ldgen.mk
 	$(Q)printf "$(foreach info,$(LDGEN_SECTIONS_INFO),$(info)\n)" > $@
 
-$(BUILD)/esp32.common.ld: $(ESPCOMP)/esp32/ld/esp32.common.ld.in $(LDGEN_FRAGMENTS) $(SDKCONFIG) $(LDGEN_SECTION_INFOS)
+$(BUILD)/esp32.project.ld: $(ESPCOMP)/esp32/ld/esp32.project.ld.in $(LDGEN_FRAGMENTS) $(SDKCONFIG) $(LDGEN_SECTION_INFOS)
 	$(ECHO) "GEN $@"
 	$(Q)$(PYTHON) $(ESPIDF)/tools/ldgen/ldgen.py \
 		--input $< \
@@ -845,7 +875,7 @@ $(BUILD)/application.bin: $(BUILD)/application.elf
 	$(ECHO) "Create $@"
 	$(Q)$(ESPTOOL) --chip esp32 elf2image --flash_mode $(FLASH_MODE) --flash_freq $(FLASH_FREQ) --flash_size $(FLASH_SIZE) $<
 
-$(BUILD)/application.elf: $(OBJ) $(LIB) $(BUILD)/esp32_out.ld $(BUILD)/esp32.common.ld
+$(BUILD)/application.elf: $(OBJ) $(LIB) $(BUILD)/esp32_out.ld $(BUILD)/esp32.project.ld
 	$(ECHO) "LINK $@"
 	$(Q)$(LD) $(LDFLAGS) -o $@ $(APP_LD_ARGS)
 	$(Q)$(SIZE) $@
@@ -872,7 +902,7 @@ $(BUILD)/%.o: %.cpp
 BOOTLOADER_LIB_DIR = $(BUILD)/bootloader
 BOOTLOADER_LIB_ALL =
 
-$(BUILD)/bootloader/$(ESPCOMP)/%.o: CFLAGS += -DBOOTLOADER_BUILD=1 -I$(ESPCOMP)/bootloader_support/include_priv -I$(ESPCOMP)/bootloader_support/include -I$(ESPCOMP)/micro-ecc/micro-ecc -I$(ESPCOMP)/esp32 -Wno-error=format
+$(BUILD)/bootloader/$(ESPCOMP)/%.o: CFLAGS += -DBOOTLOADER_BUILD=1 -I$(ESPCOMP)/efuse/include -I$(ESPCOMP)/efuse/esp32/include -I$(ESPCOMP)/efuse/src -I$(ESPCOMP)/bootloader_support/include_priv -I$(ESPCOMP)/bootloader_support/include -I$(ESPCOMP)/micro-ecc/micro-ecc -I$(ESPCOMP)/esp32 -Wno-error=format
 
 # libbootloader_support.a
 BOOTLOADER_LIB_ALL += bootloader_support
@@ -884,7 +914,6 @@ BOOTLOADER_LIB_BOOTLOADER_SUPPORT_OBJ = $(addprefix $(BUILD)/bootloader/$(ESPCOM
 	bootloader_support/src/bootloader_random.o \
 	bootloader_support/src/bootloader_sha.o \
 	bootloader_support/src/bootloader_utility.o \
-	bootloader_support/src/efuse.o \
 	bootloader_support/src/flash_qio_mode.o \
 	bootloader_support/src/secure_boot_signatures.o \
 	bootloader_support/src/secure_boot.o \
@@ -892,6 +921,8 @@ BOOTLOADER_LIB_BOOTLOADER_SUPPORT_OBJ = $(addprefix $(BUILD)/bootloader/$(ESPCOM
 	bootloader_support/src/flash_encrypt.o \
 	bootloader_support/src/flash_partitions.o \
 	)
+# bootloader_support/src/efuse.o
+
 $(BOOTLOADER_LIB_DIR)/libbootloader_support.a: $(BOOTLOADER_LIB_BOOTLOADER_SUPPORT_OBJ)
 	$(ECHO) "AR $@"
 	$(Q)$(AR) cr $@ $^

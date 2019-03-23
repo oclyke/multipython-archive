@@ -34,7 +34,7 @@
 #include "freertos/task.h"
 #include "rom/ets_sys.h"
 #include "rom/rtc.h"
-#include "esp_clk.h"
+#include "esp32/clk.h"
 #include "esp_pm.h"
 #include "driver/touch_pad.h"
 
