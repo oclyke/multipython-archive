@@ -150,7 +150,7 @@ void mp_task_switched_in( uint32_t tID ){
 mp_state_ctx_t _hidden_mp_state_ctx;
 
 mp_context_node_t mp_default_context = {
-    .id = MP_CONTEXT_DEFAULT_ID,
+    .id = 0,
     .state = &_hidden_mp_state_ctx,
     .next = NULL,
 };

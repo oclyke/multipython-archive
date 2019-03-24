@@ -281,7 +281,6 @@ bool mp_context_iter_done( mp_context_iter_t iter );
 mp_context_iter_t mp_context_iter_next( mp_context_iter_t iter );
 void mp_context_foreach(mp_context_iter_t head, void (*f)(mp_context_iter_t iter, void*), void* args);
 
-#define MP_CONTEXT_DEFAULT_ID 0 // ToDo: move this into proper configuration files
 #define MP_CONTEXT_PTR_FROM_ITER(iter) ((mp_context_node_t*)iter)
 #define MP_ITER_FROM_CONTEXT_PTR(cptr) ((mp_context_iter_t)cptr)
 
