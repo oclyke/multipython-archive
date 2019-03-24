@@ -283,7 +283,7 @@ extern volatile uint32_t mp_current_tID;
 void mp_context_refresh( void );
 void mp_context_switch(mp_context_node_t* node);
 
-void mp_task_register( uint32_t tID, void* args );
+mp_context_node_t* mp_task_register( uint32_t tID, void* args );
 void mp_task_remove( uint32_t tID );
 void mp_task_switched_in( uint32_t tID );
 void* mp_task_alloc( size_t size, uint32_t tID );

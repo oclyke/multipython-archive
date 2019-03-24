@@ -122,22 +122,23 @@ void mp_context_remove( mp_context_node_t* node ){
     MP_STATE_FREE(node);
 }
 
-void mp_task_register( uint32_t tID, void* args ){
+mp_context_node_t* mp_task_register( uint32_t tID, void* args ){
     mp_context_node_t* node = NULL;
     node = mp_context_by_tid( tID );
-    if( node != NULL ){ return; } // can't register the same task ID
+    if( node != NULL ){ return NULL; } // can't register the same task ID
     node = mp_new_context_node();
-    if( node == NULL ){ return; } // no heap
+    if( node == NULL ){ return NULL; } // no heap
     mp_state_ctx_t* state = mp_new_state();
     if( state == NULL ){ 
         MP_STATE_FREE(node);
-        return; // no heap
+        return NULL; // no heap
     }
     node->id = tID;
     node->state = state;
     node->args = args;
     node->next = NULL;
     mp_context_append(node);
+    return node;
 }
 
 void mp_task_remove( uint32_t tID ){
