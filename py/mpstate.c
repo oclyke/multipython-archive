@@ -36,6 +36,7 @@ mp_dynamic_compiler_t mp_dynamic_compiler = {0};
 #endif
 
 void mp_context_switch(mp_context_node_t* node){
+    if( node == NULL ){ return; }
     mp_active_context = *(node);
     mp_context_refresh();
 }
@@ -98,6 +99,7 @@ mp_context_node_t* mp_context_tail( void ){
 }
 
 void mp_context_append( mp_context_node_t* node ){
+    if(node == NULL){ return; }
     mp_context_node_t* tail = mp_context_tail();
     if(tail == NULL){ return; }
     tail->next = node;
