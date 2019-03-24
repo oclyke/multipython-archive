@@ -267,6 +267,7 @@ extern mp_obj_dict_t mp_active_loaded_modules_dict;
 
 extern mp_context_node_t* mp_context_head;
 extern mp_context_node_t mp_active_context;
+extern volatile uint32_t mp_current_tID;
 
 void mp_context_refresh( void );
 void mp_context_switch(mp_context_node_t* node);
