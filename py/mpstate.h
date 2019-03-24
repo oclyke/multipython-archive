@@ -255,10 +255,19 @@ typedef struct _mp_state_ctx_t {
 } mp_state_ctx_t;
 
 typedef struct _mp_context_node_t mp_context_node_t;
+
+typedef struct _mp_context_dynmem_node_t{
+    struct _mp_context_node_t*          context;
+    void*                               mem;
+    size_t                              size;
+    struct _mp_context_dynmem_node_t*   next;
+}mp_context_dynmem_node_t;
+
 struct _mp_context_node_t{
     uint32_t                    id;
     mp_state_ctx_t*             state;
     void*                       args;
+    mp_context_dynmem_node_t*   memhead;
     struct _mp_context_node_t*  next;
 };
 
@@ -277,6 +286,8 @@ void mp_context_switch(mp_context_node_t* node);
 void mp_task_register( uint32_t tID );
 void mp_task_remove( uint32_t tID );
 void mp_task_switched_in( uint32_t tID );
+void* mp_task_alloc( size_t size, uint32_t tID );
+int8_t mp_task_free( void* mem, uint32_t tID );
 
 typedef mp_context_node_t* mp_context_iter_t;
 mp_context_iter_t mp_context_iter_first( mp_context_iter_t head );
@@ -286,6 +297,16 @@ void mp_context_foreach(mp_context_iter_t head, void (*f)(mp_context_iter_t iter
 
 #define MP_CONTEXT_PTR_FROM_ITER(iter) ((mp_context_node_t*)iter)
 #define MP_ITER_FROM_CONTEXT_PTR(cptr) ((mp_context_iter_t)cptr)
+
+
+typedef mp_context_dynmem_node_t* mp_context_dynmem_iter_t;
+mp_context_dynmem_iter_t mp_dynmem_iter_first( mp_context_dynmem_iter_t head );
+bool mp_dynmem_iter_done( mp_context_dynmem_iter_t iter );
+mp_context_dynmem_iter_t mp_dynmem_iter_next( mp_context_dynmem_iter_t iter );
+void mp_dynmem_foreach(mp_context_dynmem_iter_t head, void (*f)(mp_context_dynmem_iter_t iter, void*), void* args);
+
+#define MP_DYNMEM_PTR_FROM_ITER(iter) ((mp_context_dynmem_node_t*)iter)
+#define MP_ITER_FROM_DYNMEM_PTR(dptr) ((mp_context_dynmem_iter_t)dptr)
 
 #define MP_STATE_VM(x) (mp_active_context.state->vm.x)
 #define MP_STATE_MEM(x) (mp_active_context.state->mem.x)
