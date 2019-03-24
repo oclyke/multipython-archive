@@ -144,7 +144,8 @@ void mp_task_remove( uint32_t tID ){
     mp_context_node_t* node = NULL;
     node = mp_context_by_tid( tID );
     if( node == NULL ){ return; }
-    mp_context_remove(node);
+    mp_task_free_all( tID );
+    mp_context_remove( node );
 }
 
 void mp_task_switched_in( uint32_t tID ){
