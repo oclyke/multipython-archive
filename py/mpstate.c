@@ -58,7 +58,7 @@ void mp_context_refresh( void ){
 // context iterator functions
 mp_context_iter_t mp_context_iter_first( mp_context_iter_t head ){ return head; }
 bool mp_context_iter_done( mp_context_iter_t iter ){ return (iter == NULL); }
-mp_context_iter_t mp_context_iter_next( mp_context_iter_t iter ){ return ((mp_context_iter_t)iter->next); }
+mp_context_iter_t mp_context_iter_next( mp_context_iter_t iter ){ return (MP_CONTEXT_PTR_FROM_ITER(iter)->next); }
 void mp_context_foreach(mp_context_iter_t head, void (*f)(mp_context_iter_t iter, void*), void* args){
     mp_context_iter_t iter = NULL;
     for( iter = mp_context_iter_first(head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter) ){ 
