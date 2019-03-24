@@ -64,7 +64,12 @@ int vprintf_null(const char *format, va_list ap) {
 }
 
 void mp_task(void *pvParameter) {
+    // Main task has special treatment b/c the state is not dynamically allocated
+    // Normally all that is required is to call mp_task_register with the ID and args
+    uint32_t mp_task_id = mp_current_tID;
+    mp_context_head->id = mp_task_id;
     mp_context_switch(mp_context_head);
+
     volatile uint32_t sp = (uint32_t)get_sp();
     #if MICROPY_PY_THREAD
     mp_thread_init(pxTaskGetStackStart(NULL), MP_TASK_STACK_LEN);
