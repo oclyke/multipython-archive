@@ -254,11 +254,12 @@ typedef struct _mp_state_ctx_t {
     mp_state_mem_t mem;
 } mp_state_ctx_t;
 
-typedef struct _mp_context_node_t{
+typedef struct _mp_context_node_t mp_context_node_t;
+struct _mp_context_node_t{
     uint32_t                    id;
     mp_state_ctx_t*             state;
     struct _mp_context_node_t*  next;
-}mp_context_node_t;
+};
 
 extern mp_obj_dict_t mp_active_dict_main;
 extern mp_obj_list_t mp_active_sys_path_obj;
