@@ -116,7 +116,7 @@ void mp_context_remove( mp_context_node_t* node ){
     MP_STATE_FREE(node);
 }
 
-void mp_task_register( uint32_t tID ){
+void mp_task_register( uint32_t tID, void* args ){
     mp_context_node_t* node = NULL;
     node = mp_context_by_tid( tID );
     if( node != NULL ){ return; } // can't register the same task ID
@@ -129,6 +129,7 @@ void mp_task_register( uint32_t tID ){
     }
     node->id = tID;
     node->state = state;
+    node->args = args;
     node->next = NULL;
     mp_context_append(node);
 }

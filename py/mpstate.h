@@ -258,6 +258,7 @@ typedef struct _mp_context_node_t mp_context_node_t;
 struct _mp_context_node_t{
     uint32_t                    id;
     mp_state_ctx_t*             state;
+    void*                       args;
     struct _mp_context_node_t*  next;
 };
 
