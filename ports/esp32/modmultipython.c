@@ -143,6 +143,7 @@ STATIC mp_obj_t multipython_task_free( mp_obj_t ptr ) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_task_free_obj, multipython_task_free);
 
+extern int8_t mp_task_free_all( uint32_t tID );
 STATIC mp_obj_t multipython_task_free_all( void ) {
     int8_t retval= mp_task_free_all( mp_current_tID );
     if(retval){ mp_print_str(&mp_plat_print, "There was a problem freeing all memory\n"); }
