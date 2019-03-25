@@ -152,6 +152,7 @@ void mp_task_remove( uint32_t tID ){
 }
 
 void mp_task_switched_in( uint32_t tID ){
+    // todo: we need to handle when the switched-in task is a thread running underneath one of our contexts. (i.e. in the threadctrl->thread LL)
     mp_current_tID = tID;
     mp_context_node_t* node = mp_context_by_tid( tID );
     if(node == NULL){ return; }
