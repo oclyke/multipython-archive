@@ -91,13 +91,13 @@ void mp_task(void *pvParameter) {
         default:
             // No SPIRAM, fallback to normal allocation
             mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-            mp_task_heap = malloc(mp_task_heap_size);
+            mp_task_heap = malloc(mp_task_heap_size); // todo: make heap size configurable or "extendable"
             break;
     }
     #else
     // Allocate the uPy heap using malloc and get the largest available region
     size_t mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-    void *mp_task_heap = malloc(mp_task_heap_size);
+    void *mp_task_heap = malloc(mp_task_heap_size); // todo: make heap size configurable or "extendable"
     #endif
 
 soft_reset:
@@ -135,6 +135,7 @@ soft_reset:
                 break;
             }
         }
+        // todo: make sure REPL task does not starve IDLE0 task (b/c IDLE0 task cleans up memory from dead tasks)
     }
 
     machine_timer_deinit_all();
