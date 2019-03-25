@@ -277,7 +277,8 @@ extern mp_obj_list_t mp_active_sys_argv_obj;
 extern mp_obj_dict_t mp_active_loaded_modules_dict; 
 
 extern mp_context_node_t* mp_context_head;
-extern mp_context_node_t mp_active_context;
+extern mp_context_node_t* mp_active_context;
+extern mp_context_node_t  mp_active_context_mirror;
 extern volatile uint32_t mp_current_tID;
 
 void mp_context_refresh( void );
@@ -308,14 +309,14 @@ void mp_dynmem_foreach(mp_context_dynmem_iter_t head, void (*f)(mp_context_dynme
 #define MP_DYNMEM_PTR_FROM_ITER(iter) ((mp_context_dynmem_node_t*)iter)
 #define MP_ITER_FROM_DYNMEM_PTR(dptr) ((mp_context_dynmem_iter_t)dptr)
 
-#define MP_STATE_VM(x) (mp_active_context.state->vm.x)
-#define MP_STATE_MEM(x) (mp_active_context.state->mem.x)
+#define MP_STATE_VM(x) (mp_active_context_mirror.state->vm.x)
+#define MP_STATE_MEM(x) (mp_active_context_mirror.state->mem.x)
 
 #if MICROPY_PY_THREAD
 extern mp_state_thread_t *mp_thread_get_state(void);
 #define MP_STATE_THREAD(x) (mp_thread_get_state()->x)
 #else
-#define MP_STATE_THREAD(x) (mp_active_context.state->thread.x)
+#define MP_STATE_THREAD(x) (mp_active_context_mirror.state->thread.x)
 #endif
 
 #endif // MICROPY_INCLUDED_PY_MPSTATE_H

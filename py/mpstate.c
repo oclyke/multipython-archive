@@ -42,7 +42,8 @@ int8_t mp_task_free_all( uint32_t tID );
 // switch the micropython state to a given node
 void mp_context_switch(mp_context_node_t* node){
     if( node == NULL ){ return; }
-    mp_active_context = *(node);
+    mp_active_context = node;
+    mp_active_context_mirror = *(mp_active_context);
     mp_context_refresh();
 }
 
@@ -285,7 +286,8 @@ mp_context_node_t mp_default_context = {
     .next = NULL,
 };
 
-mp_context_node_t mp_active_context;
+mp_context_node_t  mp_active_context_mirror;
+mp_context_node_t* mp_active_context;
 mp_context_node_t* mp_context_head = &mp_default_context;
 volatile uint32_t mp_current_tID = 0;
 

@@ -82,7 +82,7 @@ STATIC void mp_thread_gc(int signo, siginfo_t *info, void *context) {
 
 void mp_thread_init(void) {
     pthread_key_create(&tls_key, NULL);
-    pthread_setspecific(tls_key, &(mp_active_context.state->thread));
+    pthread_setspecific(tls_key, &(mp_active_context_mirror.state->thread));
 
     // create first entry in linked list of all threads
     thread = malloc(sizeof(thread_t));
