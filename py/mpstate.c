@@ -145,6 +145,7 @@ mp_context_node_t* mp_task_register( uint32_t tID, void* args ){
 void mp_task_remove( uint32_t tID ){
     mp_context_node_t* node = NULL;
     node = mp_context_by_tid( tID );
+    if( node == mp_context_head){ return; }
     if( node == NULL ){ return; }
     mp_task_free_all( tID );
     mp_context_remove( node );
