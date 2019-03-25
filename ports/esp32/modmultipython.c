@@ -74,21 +74,6 @@ STATIC mp_obj_t multipython_remove_task( mp_obj_t tID ) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_remove_task_obj, multipython_remove_task);
 
-// STATIC mp_obj_t multipython_allocate( mp_obj_t size ) {
-//     void* mp_task_alloc( size_t size, uint32_t tID );
-
-//     return mp_const_none;
-// }
-// STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_allocate_obj, multipython_allocate);
-
-// STATIC mp_obj_t multipython_free( ) {
-
-//     int8_t mp_task_free( void* mem, uint32_t tID );
-//     return mp_const_none;
-// }
-// STATIC MP_DEFINE_CONST_FUN_OBJ_0(multipython_free_obj, multipython_free);
-
-
 
 // MicroPython runs as a task under FreeRTOS
 #define MULTIP_TASK_PRIORITY        (ESP_TASK_PRIO_MIN + 1)
