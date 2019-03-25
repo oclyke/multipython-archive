@@ -267,6 +267,7 @@ struct _mp_context_node_t{
     uint32_t                    id;
     mp_state_ctx_t*             state;
     void*                       args;
+    void*                       threadctrl;
     mp_context_dynmem_node_t*   memhead;
     struct _mp_context_node_t*  next;
 };
