@@ -4,17 +4,29 @@ The multipython module is designed to allow creation and execution of new MicroP
 
 */
 
+#include "py/binary.h"
+#include "py/builtin.h"
+#include "py/compile.h"
+#include "py/gc.h"
+#include "py/mphal.h"
+#include "py/mpstate.h"
 #include "py/nlr.h"
 #include "py/obj.h"
 #include "py/runtime.h"
-#include "py/binary.h"
-#include "py/builtin.h"
+#include "py/stackctrl.h"
 
-#include "py/mpstate.h"
+#include "lib/mp-readline/readline.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_task.h"
+
+#include "esp_task.h"
+#include "soc/cpu.h"
+
+#include "modmachine.h"
+
+#include <string.h>
 
 portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 
