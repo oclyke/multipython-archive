@@ -81,6 +81,21 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_remove_task_obj, multipython_remove
 #define MULTIPYTHON_TASK_STACK_LEN       (MULTIPYTHON_TASK_STACK_SIZE / sizeof(StackType_t))
 
 void testTask( void* pvParams ){
+mp_obj_t execute_from_str(const char *str) {
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0) {
+        qstr src_name = 1/*MP_QSTR_*/;
+        mp_lexer_t *lex = mp_lexer_new_from_str_len(src_name, str, strlen(str), false);
+        mp_parse_tree_t pt = mp_parse(lex, MP_PARSE_FILE_INPUT);
+        mp_obj_t module_fun = mp_compile(&pt, src_name, MP_EMIT_OPT_NONE, false);
+        mp_call_function_0(module_fun);
+        nlr_pop();
+        return 0;
+    } else {
+        // uncaught exception
+        return (mp_obj_t)nlr.ret_val;
+    }
+}
 
     uint32_t thisTaskID = mp_current_tID;
     mp_task_register( thisTaskID, pvParams );
