@@ -80,7 +80,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_remove_task_obj, multipython_remove
 #define MULTIPYTHON_TASK_STACK_SIZE      (16 * 1024)
 #define MULTIPYTHON_TASK_STACK_LEN       (MULTIPYTHON_TASK_STACK_SIZE / sizeof(StackType_t))
 
-void testTask( void* pvParams ){
 mp_obj_t execute_from_str(const char *str) {
     nlr_buf_t nlr;
     if (nlr_push(&nlr) == 0) {
@@ -97,22 +96,118 @@ mp_obj_t execute_from_str(const char *str) {
     }
 }
 
+void testTask( void* pvParams ){
     uint32_t thisTaskID = mp_current_tID;
-    mp_task_register( thisTaskID, pvParams );
+    mp_context_node_t* node = mp_task_register( thisTaskID, pvParams );
+    mp_context_switch(node);
 
-    uint8_t* p8 = (uint8_t*)mp_task_alloc( 1*sizeof(uint8_t), thisTaskID );
-    if( p8 == NULL ){ 
-        while(1){
-            mp_print_str(&mp_plat_print, "Could not allocate p8\n"); 
-            vTaskDelay(5000/portTICK_PERIOD_MS);
+    volatile uint32_t sp = (uint32_t)get_sp();
+    #if MICROPY_PY_THREAD
+    mp_thread_init(pxTaskGetStackStart(NULL), MULTIPYTHON_TASK_STACK_LEN);
+    #endif
+    // uart_init();
+
+    #if CONFIG_SPIRAM_SUPPORT
+    // Try to use the entire external SPIRAM directly for the heap
+    size_t mp_task_heap_size;
+    void *mp_task_heap = (void*)0x3f800000;
+    switch (esp_spiram_get_chip_size()) {
+        case ESP_SPIRAM_SIZE_16MBITS:
+            mp_task_heap_size = 2 * 1024 * 1024;
+            break;
+        case ESP_SPIRAM_SIZE_32MBITS:
+        case ESP_SPIRAM_SIZE_64MBITS:
+            mp_task_heap_size = 4 * 1024 * 1024;
+            break;
+        default:
+            // // No SPIRAM, fallback to normal allocation
+            // mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+            mp_task_heap_size = 37000; // todo: temporary trying to reduce heap usage
+            mp_task_heap = mp_task_alloc( mp_task_heap_size, thisTaskID ); // todo: allow the task to decide on the GC heap size (user input or something)
+            break;
+    }
+    #else
+    // // Allocate the uPy heap using mp_task_alloc and get the largest available region
+    // size_t mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+    size_t mp_task_heap_size = 37000; // todo: temporary trying to reduce heap usage
+    void *mp_task_heap = mp_task_alloc( mp_task_heap_size, thisTaskID ); // todo: allow the task to decide on the GC heap size (user input or something)
+    #endif
+
+soft_reset:
+    // initialise the stack pointer for the main thread
+    mp_stack_set_top((void *)sp);
+    mp_stack_set_limit(MULTIPYTHON_TASK_STACK_SIZE - 1024);
+    gc_init(mp_task_heap, mp_task_heap + mp_task_heap_size);
+    mp_init();
+    mp_obj_list_init(mp_sys_path, 0);
+    mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR_));
+    mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR__slash_lib));
+    mp_obj_list_init(mp_sys_argv, 0);
+    mp_context_refresh();
+    readline_init0();
+
+    // // initialise peripherals
+    // machine_pins_init();
+
+    // // run boot-up scripts
+    // pyexec_frozen_module("_boot.py");
+    // pyexec_file("boot.py");
+    // if (pyexec_mode_kind == PYEXEC_MODE_FRIENDLY_REPL) {
+    //     pyexec_file("main.py");
+    // }
+
+    for (;;) {
+        // if (pyexec_mode_kind == PYEXEC_MODE_RAW_REPL) {
+        //     vprintf_like_t vprintf_log = esp_log_set_vprintf(vprintf_null);
+        //     if (pyexec_raw_repl() != 0) {
+        //         break;
+        //     }
+        //     esp_log_set_vprintf(vprintf_log);
+        // } else {
+        //     if (pyexec_friendly_repl() != 0) {
+        //         break;
+        //     }
+        // }
+
+        const char str0[] = "print('this is str0, baby!')";
+        const char str1[] = "print('hasta la vista, baby! - str1')";
+        const char str2[] = "print('never gonna give you up, never gonna let you down - str2')";
+        const char str3[] = "print('get over here - str3')";
+
+        const char* strns[4] = {str0, str1, str2, str3};
+
+        uint8_t which = ((uint32_t)pvParams);
+        if( which > 3){ which = 3; }
+
+        if (execute_from_str(strns[which])) {
+            printf("Error. Current node ID: 0x%x\n", (uint32_t)node->id);
         }
+        else{
+            // printf("Current state pointer: 0x%x\n", (uint32_t)p_mp_active_state_ctx);
+        }
+        vTaskDelay(2000/portTICK_PERIOD_MS);
+        // break; // used to leave this loop!
     }
 
-    *(p8) = 0xAA;
+    machine_timer_deinit_all();
 
-    for(;;){
-        vTaskDelay(1000/portTICK_PERIOD_MS);
-        mp_printf(&mp_plat_print, "Test Task: tID 0x%08X. p8: 0x%08X. *p8: %d\n", thisTaskID, (uint32_t)p8, *(p8) );
+    // #if MICROPY_PY_THREAD
+    // mp_thread_deinit();
+    // #endif
+
+    gc_sweep_all();
+
+    mp_hal_stdout_tx_str("MPY task: soft restart\r\n"); // todo: add more info saying which task is restarting
+
+    // // deinitialise peripherals
+    // machine_pins_deinit();
+    // usocket_events_deinit();
+
+    mp_deinit();
+    fflush(stdout);
+    const uint8_t reset = 0;
+    if(reset){ // todo: eventually we will want to be able to catch errors and restart, but allow the task to go to end if it ended of it's own accord
+        goto soft_reset;
     }
 
     portENTER_CRITICAL(&mux);
