@@ -76,9 +76,9 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_remove_task_obj, multipython_remove
 
 
 // MicroPython runs as a task under FreeRTOS
-#define MULTIP_TASK_PRIORITY        (ESP_TASK_PRIO_MIN + 1)
-#define MULTIP_TASK_STACK_SIZE      (16 * 1024)
-#define MULTIP_TASK_STACK_LEN       (MULTIP_TASK_STACK_SIZE / sizeof(StackType_t))
+#define MULTIPYTHON_TASK_PRIORITY        (ESP_TASK_PRIO_MIN + 1)
+#define MULTIPYTHON_TASK_STACK_SIZE      (16 * 1024)
+#define MULTIPYTHON_TASK_STACK_LEN       (MULTIPYTHON_TASK_STACK_SIZE / sizeof(StackType_t))
 
 void testTask( void* pvParams ){
 
