@@ -4,6 +4,8 @@ Determined to find an easy way to interact with devices we've created MultiPytho
 
 The advantage is that additional code can be executed alongside existing code using cooperative multitasking. Separate exectution environments means that programs will not have namespace conflicts. 
 
+See readme below for information on the foundation - [MicroPython](https://github.com/micropython/micropython). 
+
 
 The MicroPython project
 =======================
