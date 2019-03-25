@@ -217,8 +217,8 @@ soft_reset:
 }
 
 STATIC mp_obj_t testCompilationUsingxTaskCreate( void ){
-
-    xTaskCreate(testTask, "test_task", MULTIP_TASK_STACK_LEN, NULL, MULTIP_TASK_PRIORITY+1, NULL);
+    static uint32_t temp_modmultipython_num_tasks = 0;
+    xTaskCreate(testTask, "test_task", MULTIPYTHON_TASK_STACK_LEN, (void*)temp_modmultipython_num_tasks++, MULTIPYTHON_TASK_PRIORITY+1, NULL);
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(multipython_new_task_obj, testCompilationUsingxTaskCreate);
@@ -264,7 +264,7 @@ STATIC mp_obj_t multipython_task_end( mp_obj_t tID ) {
     uint32_t taskID = mp_obj_int_get_truncated(tID);
     xTaskHandle task = (xTaskHandle)taskID;
     mp_context_node_t* context = mp_context_by_tid( taskID );
-    if(( task == NULL ) || ( context == NULL )){
+    if(( task == NULL ) || ( context == NULL ) || ( context == mp_context_head )){
         mp_print_str(&mp_plat_print, "Error. You must present a valid task to kill\n");
         return mp_const_none;
     }
@@ -272,7 +272,7 @@ STATIC mp_obj_t multipython_task_end( mp_obj_t tID ) {
     mp_task_remove( taskID );
     portEXIT_CRITICAL(&mux);
     vTaskDelete(task);
-    return mp_const_none;
+    return mp_const_none; // todo: make sure IDLE0 task is not starved so that the task's resources can actually be freed
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_task_end_obj, multipython_task_end);
 
