@@ -365,7 +365,7 @@ STATIC const mp_rom_map_elem_t mp_module_multipython_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_show_context_dynmem), MP_ROM_PTR(&multipython_show_context_dynmem_obj) },
     { MP_ROM_QSTR(MP_QSTR_new_context), MP_ROM_PTR(&multipython_new_context_obj) },
     { MP_ROM_QSTR(MP_QSTR_remove_task), MP_ROM_PTR(&multipython_remove_task_obj) },
-    { MP_ROM_QSTR(MP_QSTR_new_task), MP_ROM_PTR(&multipython_new_task_obj) },
+    // { MP_ROM_QSTR(MP_QSTR_new_task), MP_ROM_PTR(&multipython_new_task_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_task_id), MP_ROM_PTR(&getTaskID_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_context_by_id), MP_ROM_PTR(&multipython_get_context_by_id_obj) },
     { MP_ROM_QSTR(MP_QSTR_task_allocate), MP_ROM_PTR(&multipython_task_allocate_obj) },
