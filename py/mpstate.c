@@ -113,12 +113,27 @@ void mp_context_append( mp_context_node_t* node ){
     node->next = NULL;
 }
 
+mp_context_node_t* mp_context_append_new( void ){
+    mp_context_node_t* node = NULL;
+    node = mp_new_context_node();
+    if( node == NULL ){ return NULL; } // no heap
+    mp_state_ctx_t* state = mp_new_state();
+    if( state == NULL ){ 
+        MP_STATE_FREE(node);
+        return NULL; // no heap
+    }
+    node->state = state;
+    mp_context_append( node );
+    return node;
+}
+
 void mp_context_remove( mp_context_node_t* node ){
     mp_context_node_t* predecessor = mp_context_predecessor(node);
     if( predecessor == NULL ){ return; }
     mp_context_node_t* successor = NULL;
     successor = node->next;
     predecessor->next = successor;
+    mp_context_dynmem_free_all( node );
     MP_STATE_FREE(node->state);
     MP_STATE_FREE(node);
 }
@@ -141,7 +156,6 @@ void mp_task_remove( uint32_t tID ){
     node = mp_context_by_tid( tID );
     if( node == mp_context_head){ return; }
     if( node == NULL ){ return; }
-    mp_task_free_all( tID );
     mp_context_remove( node );
 }
 
@@ -231,8 +245,7 @@ mp_context_dynmem_node_t* mp_dynmem_node_by_mem( void* mem, mp_context_node_t* c
     return MP_DYNMEM_PTR_FROM_ITER(iter);
 }
 
-void* mp_task_alloc( size_t size, uint32_t tID ){
-    mp_context_node_t* context = mp_context_by_tid( tID );
+void* mp_context_dynmem_alloc( size_t size, mp_context_node_t* context ){
     if( context == NULL){ return NULL;}
 
     mp_context_dynmem_node_t* node = mp_new_dynmem_node();
@@ -250,10 +263,8 @@ void* mp_task_alloc( size_t size, uint32_t tID ){
     return mem;
 }
 
-int8_t mp_task_free( void* mem, uint32_t tID ){
-    mp_context_node_t* context = mp_context_by_tid( tID );
+int8_t mp_context_dynmem_free( void* mem, mp_context_node_t* context ){
     if( context == NULL){ return -1; }
-
     mp_context_dynmem_node_t* node = mp_dynmem_node_by_mem( mem, context );
     if( node == NULL ){ return -1; }
     if( node->mem != mem ){ return -1; }
@@ -261,8 +272,7 @@ int8_t mp_task_free( void* mem, uint32_t tID ){
     return 0;
 }
 
-int8_t mp_task_free_all( uint32_t tID ){
-    mp_context_node_t* context = mp_context_by_tid( tID );
+int8_t mp_context_dynmem_free_all( mp_context_node_t* context ){
     if( context == NULL){ return -1; }
     if( context->memhead == NULL){ return -1; }
     while( context->memhead != NULL ){
@@ -270,6 +280,24 @@ int8_t mp_task_free_all( uint32_t tID ){
         mp_dynmem_remove( context->memhead, context );
     }
     return 0;
+}
+
+void* mp_task_alloc( size_t size, uint32_t tID ){
+    mp_context_node_t* context = mp_context_by_tid( tID );
+    if( context == NULL){ return NULL;}
+    return mp_context_dynmem_alloc( size, context );
+}
+
+int8_t mp_task_free( void* mem, uint32_t tID ){
+    mp_context_node_t* context = mp_context_by_tid( tID );
+    if( context == NULL){ return -1; }
+    return mp_context_dynmem_free( mem, context );
+}
+
+int8_t mp_task_free_all( uint32_t tID ){
+    mp_context_node_t* context = mp_context_by_tid( tID );
+    if( context == NULL){ return -1; }
+    return mp_context_dynmem_free_all( context );
 }
 
 

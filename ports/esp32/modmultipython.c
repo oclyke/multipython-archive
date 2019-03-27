@@ -348,6 +348,12 @@ STATIC mp_obj_t multipython_tasks_clean_all( void ) {
         }
         portENTER_CRITICAL(&mux);
         mp_context_remove( context );
+        vTaskDelete( task ); // OH! Duh... once we remove 'context' we can't use 'context' to get the task ID to remove.
+        portEXIT_CRITICAL(&mux);
+    }
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(multipython_tasks_clean_all_obj, multipython_tasks_clean_all);
 
 
 
@@ -367,6 +373,7 @@ STATIC const mp_rom_map_elem_t mp_module_multipython_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_task_free_all), MP_ROM_PTR(&multipython_task_free_all_obj) },
     { MP_ROM_QSTR(MP_QSTR_task_end), MP_ROM_PTR(&multipython_task_end_obj) },
     { MP_ROM_QSTR(MP_QSTR_new_task_source), MP_ROM_PTR(&multipython_multiarg_obj) },
+    { MP_ROM_QSTR(MP_QSTR_stop_all_tasks), MP_ROM_PTR(&multipython_tasks_clean_all_obj) },
     
 };
 STATIC MP_DEFINE_CONST_DICT(mp_module_multipython_globals, mp_module_multipython_globals_table);

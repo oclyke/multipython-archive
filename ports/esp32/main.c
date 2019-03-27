@@ -113,6 +113,8 @@ soft_reset:
     mp_context_refresh();
     readline_init0();
 
+    // todo: add hook for ports to stop all other running contexts when rebooting
+
     // initialise peripherals
     machine_pins_init();
 

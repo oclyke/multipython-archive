@@ -292,6 +292,13 @@ extern volatile uint32_t mp_current_tID;
 void mp_context_refresh( void );
 void mp_context_switch(mp_context_node_t* node);
 
+mp_context_node_t* mp_context_append_new( void );
+void mp_context_remove( mp_context_node_t* node );
+
+void* mp_context_dynmem_alloc( size_t size, mp_context_node_t* context );
+int8_t mp_context_dynmem_free( void* mem, mp_context_node_t* context );
+int8_t mp_context_dynmem_free_all( mp_context_node_t* context );
+
 mp_context_node_t* mp_task_register( uint32_t tID, void* args );
 void mp_task_remove( uint32_t tID );
 void mp_task_switched_in( uint32_t tID );
