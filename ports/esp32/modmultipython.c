@@ -12,10 +12,12 @@ The multipython module is designed to allow creation and execution of new MicroP
 #include "py/mpstate.h"
 #include "py/nlr.h"
 #include "py/obj.h"
+#include "py/parse.h"
 #include "py/runtime.h"
 #include "py/stackctrl.h"
 
 #include "lib/mp-readline/readline.h"
+#include "lib/utils/pyexec.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -175,28 +177,29 @@ soft_reset:
         //     }
         // }
 
-        const char str0[] = "print('this is str0, baby!')";
-        const char str1[] = "print('hasta la vista, baby! - str1')";
+        // const char str0[] = "print('this is str0, baby!')";
+        // const char str1[] = "print('hasta la vista, baby! - str1')";
+        // const char str2[] = "print('never gonna give you up, never gonna let you down - str2')";
+        // const char str3[] = "print('get over here - str3')";
 
-        const char* strns[4] = {str0, str1, str2, str3};
+        // const char* strns[4] = {str0, str1, str2, str3};
 
-        if( which > 3){ which = 3; }
         // uint8_t which = 0;
         // // uint8_t which = ((uint32_t)pvParams);
         // if( which > 3){ which = 3; }
 
-            printf("Error. Current node ID: 0x%x\n", (uint32_t)node->id);
-            // printf("Current state pointer: 0x%x\n", (uint32_t)p_mp_active_state_ctx);
         if( context->args.source != NULL ){
             if ( execute_from_str( (char*)(context->args.source) ) ){
                 printf("Error. Current context ID: 0x%x\n", (uint32_t)context->id);
             }
             // if (execute_from_str(strns[which])) {
+            //     printf("Error. Current context ID: 0x%X\n", (uint32_t)context->id);
             // }
             else{
                 // printf("Current state pointer: 0x%x\n", (uint32_t)p_mp_active_state_ctx);
             }
         }
+        // vTaskDelay(2000/portTICK_PERIOD_MS);
 
         // int pyexec_raw_repl(void);
         // int pyexec_friendly_repl(void);
@@ -205,6 +208,7 @@ soft_reset:
 
         // if(args->input_kind == MP_PARSE_FILE_INPUT){
         //     // Interpret the source as a string filename
+        //     if(pyexec_file((char*)(args->source)) == 0){
         //         reset = 0; // if no errors then exit was intentional
         //     }
         // }else if(args->input_kind == MP_PARSE_SINGLE_INPUT){
@@ -214,7 +218,9 @@ soft_reset:
         // }
 
         // break; // used to leave this loop!
+    // }
 
+    // machine_timer_deinit_all();
 
     // #if MICROPY_PY_THREAD
     // mp_thread_deinit();
@@ -222,22 +228,25 @@ soft_reset:
 
     gc_sweep_all();
 
-    mp_hal_stdout_tx_str("MPY task: soft restart\r\n"); // todo: add more info saying which task is restarting
-
     // // deinitialise peripherals
     // machine_pins_deinit();
     // usocket_events_deinit();
 
     mp_deinit();
     fflush(stdout);
-    const uint8_t reset = 0;
+    // const uint8_t reset = 0;
     if(reset){ // todo: eventually we will want to be able to catch errors and restart, but allow the task to go to end if it ended of it's own accord
         vTaskDelay(500/portTICK_PERIOD_MS);
+        mp_hal_stdout_tx_str("MPY task: soft restart\r\n"); // todo: add more info saying which task is restarting
         goto soft_reset;
     }
 
+    // mp_hal_stdout_tx_str("MPY task: death (debug output)\r\n");
+
     portENTER_CRITICAL(&mux);
+    mp_task_remove( mp_current_tID );
     portEXIT_CRITICAL(&mux);
+    vTaskDelete(NULL);  // When a task deletes itself make sure to release the mux *before* dying
 }
 
 STATIC mp_obj_t testCompilationUsingxTaskCreate( void ){
@@ -292,14 +301,26 @@ STATIC mp_obj_t multipython_task_end( mp_obj_t tID ) {
         mp_print_str(&mp_plat_print, "Error. You must present a valid task to kill\n");
         return mp_const_none;
     }
+
     portENTER_CRITICAL(&mux);
     mp_task_remove( taskID );
-    portEXIT_CRITICAL(&mux);
-    vTaskDelete(task);
+    vTaskDelete(task);     
+    portEXIT_CRITICAL(&mux);     
     return mp_const_none; // todo: make sure IDLE0 task is not starved so that the task's resources can actually be freed
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_task_end_obj, multipython_task_end);
 
+STATIC mp_obj_t multipython_multiarg(size_t n_args, const mp_obj_t *args) {
+
+    if(n_args == 0){ return mp_const_none; }
+
+    mp_context_node_t* context = mp_task_register( 0, NULL ); // register a task with unknown ID and NULL additional arguments
+    if( context == NULL ){ mp_print_str(&mp_plat_print, "Error. No memory for new context\n"); return mp_const_none; }
+
+    const char *str = mp_obj_str_get_str(args[0]);
+    size_t len = strlen(str) + 1;
+
+    void* source = mp_context_dynmem_alloc( len, context ); // allocate global memory tied to the allocated context
     if( source == NULL ){ 
         mp_context_remove( context );
         mp_print_str(&mp_plat_print, "Error. No memory for new source\n"); 
@@ -345,6 +366,7 @@ STATIC const mp_rom_map_elem_t mp_module_multipython_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_task_free), MP_ROM_PTR(&multipython_task_free_obj) },
     { MP_ROM_QSTR(MP_QSTR_task_free_all), MP_ROM_PTR(&multipython_task_free_all_obj) },
     { MP_ROM_QSTR(MP_QSTR_task_end), MP_ROM_PTR(&multipython_task_end_obj) },
+    { MP_ROM_QSTR(MP_QSTR_new_task_source), MP_ROM_PTR(&multipython_multiarg_obj) },
     
 };
 STATIC MP_DEFINE_CONST_DICT(mp_module_multipython_globals, mp_module_multipython_globals_table);
