@@ -123,21 +123,13 @@ void mp_context_remove( mp_context_node_t* node ){
     MP_STATE_FREE(node);
 }
 
-mp_context_node_t* mp_task_register( uint32_t tID, void* args ){
+mp_context_node_t* mp_task_register( uint32_t tID, void* addtlargs ){
     mp_context_node_t* node = NULL;
     node = mp_context_by_tid( tID );
     if( node != NULL ){ return NULL; } // can't register the same task ID
-    node = mp_new_context_node();
+    node = mp_context_append_new();
     if( node == NULL ){ return NULL; } // no heap
-    mp_state_ctx_t* state = mp_new_state();
-    if( state == NULL ){ 
-        MP_STATE_FREE(node);
-        return NULL; // no heap
-    }
     node->id = tID;
-    node->state = state;
-    node->next = NULL;
-    mp_context_append(node);
     node->args.input_kind = 0;
     node->args.source = NULL;
     node->args.addtl = addtlargs;
