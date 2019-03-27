@@ -190,6 +190,10 @@ void mp_thread_finish(void) {
 }
 
 void vPortCleanUpTCB(void *tcb) {
+    if (thread == NULL) {
+        // threading not yet initialised
+        return;
+    }
     thread_t *prev = NULL;
     mp_context_iter_t citer = NULL;
     for(citer = mp_context_iter_first(MP_ITER_FROM_CONTEXT_PTR(mp_context_head)); !mp_context_iter_done(citer); citer = mp_context_iter_next(citer)){
