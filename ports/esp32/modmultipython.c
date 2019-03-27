@@ -96,11 +96,13 @@ mp_obj_t execute_from_str(const char *str) {
     }
 }
 
-void testTask( void* pvParams ){
-    uint32_t thisTaskID = mp_current_tID;
-    mp_context_node_t* node = mp_task_register( thisTaskID, pvParams );
-    mp_context_switch(node);
-
+void testTask( void* void_context ){
+    // when a new task spawns it already has a context allocated, but
+    // it is up to the task to set the context id correctly
+    mp_context_node_t* context = (mp_context_node_t*)void_context;
+    context->id = mp_current_tID;
+    mp_context_switch(context);
+    
     volatile uint32_t sp = (uint32_t)get_sp();
     #if MICROPY_PY_THREAD
     mp_thread_init(pxTaskGetStackStart(NULL), MULTIPYTHON_TASK_STACK_LEN);
@@ -123,14 +125,16 @@ void testTask( void* pvParams ){
             // // No SPIRAM, fallback to normal allocation
             // mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
             mp_task_heap_size = 37000; // todo: temporary trying to reduce heap usage
-            mp_task_heap = mp_task_alloc( mp_task_heap_size, thisTaskID ); // todo: allow the task to decide on the GC heap size (user input or something)
+            // size_t mp_task_heap_size = 10000; // todo: temporary trying to reduce heap usage
+            mp_task_heap = mp_task_alloc( mp_task_heap_size, mp_current_tID ); // todo: allow the task to decide on the GC heap size (user input or something)
             break;
     }
     #else
     // // Allocate the uPy heap using mp_task_alloc and get the largest available region
     // size_t mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
     size_t mp_task_heap_size = 37000; // todo: temporary trying to reduce heap usage
-    void *mp_task_heap = mp_task_alloc( mp_task_heap_size, thisTaskID ); // todo: allow the task to decide on the GC heap size (user input or something)
+    // size_t mp_task_heap_size = 10000; // todo: temporary trying to reduce heap usage
+    void *mp_task_heap = mp_task_alloc( mp_task_heap_size, mp_current_tID ); // todo: allow the task to decide on the GC heap size (user input or something)
     #endif
 
 soft_reset:
@@ -156,7 +160,9 @@ soft_reset:
     //     pyexec_file("main.py");
     // }
 
-    for (;;) {
+    uint8_t reset = 0;
+
+    // for (;;) {
         // if (pyexec_mode_kind == PYEXEC_MODE_RAW_REPL) {
         //     vprintf_like_t vprintf_log = esp_log_set_vprintf(vprintf_null);
         //     if (pyexec_raw_repl() != 0) {
@@ -171,25 +177,44 @@ soft_reset:
 
         const char str0[] = "print('this is str0, baby!')";
         const char str1[] = "print('hasta la vista, baby! - str1')";
-        const char str2[] = "print('never gonna give you up, never gonna let you down - str2')";
-        const char str3[] = "print('get over here - str3')";
 
         const char* strns[4] = {str0, str1, str2, str3};
 
-        uint8_t which = ((uint32_t)pvParams);
         if( which > 3){ which = 3; }
+        // uint8_t which = 0;
+        // // uint8_t which = ((uint32_t)pvParams);
+        // if( which > 3){ which = 3; }
 
-        if (execute_from_str(strns[which])) {
             printf("Error. Current node ID: 0x%x\n", (uint32_t)node->id);
-        }
-        else{
             // printf("Current state pointer: 0x%x\n", (uint32_t)p_mp_active_state_ctx);
+        if( context->args.source != NULL ){
+            if ( execute_from_str( (char*)(context->args.source) ) ){
+                printf("Error. Current context ID: 0x%x\n", (uint32_t)context->id);
+            }
+            // if (execute_from_str(strns[which])) {
+            // }
+            else{
+                // printf("Current state pointer: 0x%x\n", (uint32_t)p_mp_active_state_ctx);
+            }
         }
-        vTaskDelay(2000/portTICK_PERIOD_MS);
-        // break; // used to leave this loop!
-    }
 
-    machine_timer_deinit_all();
+        // int pyexec_raw_repl(void);
+        // int pyexec_friendly_repl(void);
+        // int pyexec_file(const char *filename);
+        // int pyexec_frozen_module(const char *name);
+
+        // if(args->input_kind == MP_PARSE_FILE_INPUT){
+        //     // Interpret the source as a string filename
+        //         reset = 0; // if no errors then exit was intentional
+        //     }
+        // }else if(args->input_kind == MP_PARSE_SINGLE_INPUT){
+        //     // Interpret the source as a string input
+        // }else{
+        //     // Don't do anything... 
+        // }
+
+        // break; // used to leave this loop!
+
 
     // #if MICROPY_PY_THREAD
     // mp_thread_deinit();
@@ -207,13 +232,12 @@ soft_reset:
     fflush(stdout);
     const uint8_t reset = 0;
     if(reset){ // todo: eventually we will want to be able to catch errors and restart, but allow the task to go to end if it ended of it's own accord
+        vTaskDelay(500/portTICK_PERIOD_MS);
         goto soft_reset;
     }
 
     portENTER_CRITICAL(&mux);
-    mp_task_remove( thisTaskID );
     portEXIT_CRITICAL(&mux);
-    vTaskDelete(NULL);
 }
 
 STATIC mp_obj_t testCompilationUsingxTaskCreate( void ){
@@ -276,6 +300,33 @@ STATIC mp_obj_t multipython_task_end( mp_obj_t tID ) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_task_end_obj, multipython_task_end);
 
+    if( source == NULL ){ 
+        mp_context_remove( context );
+        mp_print_str(&mp_plat_print, "Error. No memory for new source\n"); 
+        return mp_const_none; 
+    }
+    memcpy(source, (void*)str, len);
+    context->args.input_kind = MP_PARSE_FILE_INPUT;
+    context->args.source = source;
+
+    xTaskCreate(testTask, "", MULTIPYTHON_TASK_STACK_LEN, (void*)context, MULTIPYTHON_TASK_PRIORITY+1, NULL);
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_multiarg_obj, 1, 1, multipython_multiarg);
+
+STATIC mp_obj_t multipython_tasks_clean_all( void ) {
+    mp_context_iter_t iter = NULL;
+    mp_print_str(&mp_plat_print, "Removing all MultiPython contexts\n");
+    for( iter = mp_context_iter_first(mp_context_iter_next(MP_ITER_FROM_CONTEXT_PTR(mp_context_head))); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter) ){
+        // Method four..... applying what I just learned.
+        mp_context_node_t* context = MP_CONTEXT_PTR_FROM_ITER(iter);
+        xTaskHandle task = (xTaskHandle)(context->id);  // need this b/c cant get it from context after removing context
+        if(( task == NULL ) || ( context == NULL ) || ( context == mp_context_head )){
+            mp_print_str(&mp_plat_print, "Error. You must present a valid task to kill\n");
+            return mp_const_none;
+        }
+        portENTER_CRITICAL(&mux);
+        mp_context_remove( context );
 
 
 

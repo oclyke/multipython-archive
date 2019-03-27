@@ -136,9 +136,11 @@ mp_context_node_t* mp_task_register( uint32_t tID, void* args ){
     }
     node->id = tID;
     node->state = state;
-    node->args = args;
     node->next = NULL;
     mp_context_append(node);
+    node->args.input_kind = 0;
+    node->args.source = NULL;
+    node->args.addtl = addtlargs;
     return node;
 }
 

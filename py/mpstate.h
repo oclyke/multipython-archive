@@ -35,6 +35,7 @@
 #include "py/obj.h"
 #include "py/objlist.h"
 #include "py/objexcept.h"
+#include "py/parse.h"
 
 // This file contains structures defining the state of the MicroPython
 // memory system, runtime and virtual machine.  The state is a global
@@ -263,10 +264,16 @@ typedef struct _mp_context_dynmem_node_t{
     struct _mp_context_dynmem_node_t*   next;
 }mp_context_dynmem_node_t;
 
+typedef struct _mp_task_args_t {
+    mp_parse_input_kind_t   input_kind;
+    void*                   source;
+    void*                   addtl;
+}mp_task_args_t;
+
 struct _mp_context_node_t{
     uint32_t                    id;
     mp_state_ctx_t*             state;
-    void*                       args;
+    mp_task_args_t              args;
     void*                       threadctrl;
     mp_context_dynmem_node_t*   memhead;
     struct _mp_context_node_t*  next;
