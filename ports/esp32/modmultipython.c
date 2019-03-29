@@ -191,7 +191,7 @@ soft_reset:
         if( context->args.source != NULL ){
             if( context->args.input_kind == MP_PARSE_FILE_INPUT ){
                 int status = pyexec_file( (char*)(context->args.source) );
-                mp_printf(&mp_plat_print, "pyexec_file returned %d\n", status );
+                // mp_printf(&mp_plat_print, "pyexec_file returned %d\n", status );
             }else if( context->args.input_kind == MP_PARSE_SINGLE_INPUT){
                 if ( execute_from_str( (char*)(context->args.source) ) ){
                     error = 1;
@@ -234,13 +234,17 @@ soft_reset:
 
     mp_deinit();
     fflush(stdout);
-    // const uint8_t reset = 0;
+    const uint8_t reset = 0;
+    
     if(error){ // todo: eventually we will want to be able to catch errors and restart, but allow the task to go to end if it ended of it's own accord
         vTaskDelay(500/portTICK_PERIOD_MS);
         printf("Error. Current context ID: 0x%x\n", (uint32_t)context->id);
         mp_hal_stdout_tx_str("MPY task: soft restart\r\n"); // todo: add more info saying which task is restarting
-        goto soft_reset;
+        if(reset){
+            goto soft_reset;
+        }
     }
+
 
     // mp_hal_stdout_tx_str("MPY task: death (debug output)\r\n");
 
