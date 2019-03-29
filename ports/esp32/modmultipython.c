@@ -162,7 +162,7 @@ soft_reset:
     //     pyexec_file("main.py");
     // }
 
-    uint8_t reset = 0;
+    uint8_t error = 0;
 
     // for (;;) {
         // if (pyexec_mode_kind == PYEXEC_MODE_RAW_REPL) {
@@ -189,16 +189,16 @@ soft_reset:
         // if( which > 3){ which = 3; }
 
         if( context->args.source != NULL ){
-            if ( execute_from_str( (char*)(context->args.source) ) ){
-                printf("Error. Current context ID: 0x%x\n", (uint32_t)context->id);
-            }
-            // if (execute_from_str(strns[which])) {
-            //     printf("Error. Current context ID: 0x%X\n", (uint32_t)context->id);
-            // }
-            else{
-                // printf("Current state pointer: 0x%x\n", (uint32_t)p_mp_active_state_ctx);
+            if( context->args.input_kind == MP_PARSE_FILE_INPUT ){
+                int status = pyexec_file( (char*)(context->args.source) );
+                mp_printf(&mp_plat_print, "pyexec_file returned %d\n", status );
+            }else if( context->args.input_kind == MP_PARSE_SINGLE_INPUT){
+                if ( execute_from_str( (char*)(context->args.source) ) ){
+                    error = 1;
+                }
             }
         }
+
         // vTaskDelay(2000/portTICK_PERIOD_MS);
 
         // int pyexec_raw_repl(void);
@@ -235,8 +235,9 @@ soft_reset:
     mp_deinit();
     fflush(stdout);
     // const uint8_t reset = 0;
-    if(reset){ // todo: eventually we will want to be able to catch errors and restart, but allow the task to go to end if it ended of it's own accord
+    if(error){ // todo: eventually we will want to be able to catch errors and restart, but allow the task to go to end if it ended of it's own accord
         vTaskDelay(500/portTICK_PERIOD_MS);
+        printf("Error. Current context ID: 0x%x\n", (uint32_t)context->id);
         mp_hal_stdout_tx_str("MPY task: soft restart\r\n"); // todo: add more info saying which task is restarting
         goto soft_reset;
     }
@@ -327,13 +328,19 @@ STATIC mp_obj_t multipython_multiarg(size_t n_args, const mp_obj_t *args) {
         return mp_const_none; 
     }
     memcpy(source, (void*)str, len);
-    context->args.input_kind = MP_PARSE_FILE_INPUT;
+    context->args.input_kind = MP_PARSE_SINGLE_INPUT;
     context->args.source = source;
+
+    if( n_args == 2 ){
+        if( mp_obj_int_get_truncated( args[1] ) == MP_PARSE_FILE_INPUT ){
+            context->args.input_kind = MP_PARSE_FILE_INPUT;
+        }
+    }
 
     xTaskCreate(testTask, "", MULTIPYTHON_TASK_STACK_LEN, (void*)context, MULTIPYTHON_TASK_PRIORITY+1, NULL);
     return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_multiarg_obj, 1, 1, multipython_multiarg);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_multiarg_obj, 1, 2, multipython_multiarg);
 
 STATIC mp_obj_t multipython_tasks_clean_all( void ) {
     mp_context_iter_t iter = NULL;
@@ -355,6 +362,12 @@ STATIC mp_obj_t multipython_tasks_clean_all( void ) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(multipython_tasks_clean_all_obj, multipython_tasks_clean_all);
 
+STATIC mp_obj_t multipython_exec_file( mp_obj_t filename ) {
+    const char *str = mp_obj_str_get_str( filename );
+    pyexec_file( (char*)(str) );
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_exec_file_obj, multipython_exec_file);
 
 
 // Module Definitions
@@ -374,7 +387,7 @@ STATIC const mp_rom_map_elem_t mp_module_multipython_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_task_end), MP_ROM_PTR(&multipython_task_end_obj) },
     { MP_ROM_QSTR(MP_QSTR_new_task_source), MP_ROM_PTR(&multipython_multiarg_obj) },
     { MP_ROM_QSTR(MP_QSTR_stop_all_tasks), MP_ROM_PTR(&multipython_tasks_clean_all_obj) },
-    
+    { MP_ROM_QSTR(MP_QSTR_exec_file), MP_ROM_PTR(&multipython_exec_file_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(mp_module_multipython_globals, mp_module_multipython_globals_table);
 
