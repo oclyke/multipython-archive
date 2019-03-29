@@ -111,6 +111,9 @@ INC_ESPCOMP += -I$(ESPCOMP)/app_trace/include
 INC_ESPCOMP += -I$(ESPCOMP)/app_update/include
 INC_ESPCOMP += -I$(ESPCOMP)/pthread/include
 INC_ESPCOMP += -I$(ESPCOMP)/smartconfig_ack/include
+INC_ESPCOMP += -I$(ESPCOMP)/sdmmc
+INC_ESPCOMP += -I$(ESPCOMP)/sdmmc/include
+
 
 # these flags are common to C and C++ compilation
 CFLAGS_COMMON = -Os -ffunction-sections -fdata-sections -fstrict-volatile-bitfields \
@@ -193,6 +196,7 @@ SRC_C = \
 	mpthreadport.c \
 	machine_rtc.c \
 	modmultipython.c \
+	modsdmmc.c \
 	$(SRC_MOD)
 
 EXTMOD_SRC_C = $(addprefix extmod/,\
@@ -261,6 +265,11 @@ ESPIDF_DRIVER_O = $(addprefix $(ESPCOMP)/driver/,\
 	spi_master.o \
 	spi_common.o \
 	rtc_module.o \
+	sdmmc_host.o \
+	sdmmc_transaction.o \
+	sdspi_crc.o \
+	sdspi_host.o \
+	sdspi_transaction.o \
 	)
 
 $(BUILD)/$(ESPCOMP)/esp32/dport_access.o: CFLAGS += -Wno-array-bounds
@@ -333,6 +342,8 @@ ESPIDF_SOC_O = $(addprefix $(ESPCOMP)/soc/,\
 	esp32/soc_memory_layout.o \
 	esp32/spi_periph.o \
 	src/memory_layout_utils.o \
+	esp32/sdio_slave_periph.o \
+	esp32/sdmmc_periph.o \
 	)
 
 ESPIDF_CXX_O = $(addprefix $(ESPCOMP)/cxx/,\
@@ -468,6 +479,15 @@ ESPIDF_NVS_FLASH_O = $(addprefix $(ESPCOMP)/nvs_flash/,\
 	)
 
 ESPIDF_OPENSSL_O = $(addprefix $(ESPCOMP)/openssl/,\
+	)
+
+ESPIDF_SDMMC_O = $(addprefix $(ESPCOMP)/sdmmc/,\
+	sdmmc_cmd.o \
+	sdmmc_common.o \
+	sdmmc_init.o \
+	sdmmc_io.o \
+	sdmmc_mmc.o \
+	sdmmc_sd.o \
 	)
 
 ESPIDF_SMARTCONFIG_ACK_O = $(addprefix $(ESPCOMP)/smartconfig_ack/,\
@@ -694,6 +714,7 @@ OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_SMARTCONFIG_ACK_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_SPI_FLASH_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_ULP_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_WPA_SUPPLICANT_O))
+OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_SDMMC_O))
 
 $(OBJ_ESPIDF): $(SDKCONFIG_H)
 
@@ -724,6 +745,7 @@ LIB_ESPIDF += ulp
 LIB_ESPIDF += lwip
 LIB_ESPIDF += mbedtls
 LIB_ESPIDF += wpa_supplicant
+LIB_ESPIDF += sdmmc
 
 BUILD_ESPIDF_LIB = $(BUILD)/esp-idf
 
@@ -764,6 +786,7 @@ $(eval $(call gen_espidf_lib_rule,ulp,$(ESPIDF_ULP_O)))
 $(eval $(call gen_espidf_lib_rule,lwip,$(ESPIDF_LWIP_O)))
 $(eval $(call gen_espidf_lib_rule,mbedtls,$(ESPIDF_MBEDTLS_O)))
 $(eval $(call gen_espidf_lib_rule,wpa_supplicant,$(ESPIDF_WPA_SUPPLICANT_O)))
+$(eval $(call gen_espidf_lib_rule,sdmmc,$(ESPIDF_SDMMC_O)))
 
 LIB = $(foreach lib,$(LIB_ESPIDF),$(BUILD_ESPIDF_LIB)/$(lib)/lib$(lib).a)
 
