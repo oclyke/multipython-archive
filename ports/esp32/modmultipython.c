@@ -155,8 +155,8 @@ soft_reset:
     // // initialise peripherals
     // machine_pins_init();
 
-    // // run boot-up scripts
-    // pyexec_frozen_module("_boot.py");
+    // run boot-up scripts
+    pyexec_frozen_module("_boot.py");
     // pyexec_file("boot.py");
     // if (pyexec_mode_kind == PYEXEC_MODE_FRIENDLY_REPL) {
     //     pyexec_file("main.py");
