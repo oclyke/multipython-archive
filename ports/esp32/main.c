@@ -64,7 +64,12 @@ int vprintf_null(const char *format, va_list ap) {
 }
 
 void mp_task(void *pvParameter) {
+    // Main task has special treatment b/c the state is not dynamically allocated
+    // Normally all that is required is to call mp_task_register with the ID and args
+    uint32_t mp_task_id = mp_current_tID;
+    mp_context_head->id = mp_task_id;
     mp_context_switch(mp_context_head);
+
     volatile uint32_t sp = (uint32_t)get_sp();
     #if MICROPY_PY_THREAD
     mp_thread_init(pxTaskGetStackStart(NULL), MP_TASK_STACK_LEN);
@@ -86,13 +91,13 @@ void mp_task(void *pvParameter) {
         default:
             // No SPIRAM, fallback to normal allocation
             mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-            mp_task_heap = malloc(mp_task_heap_size);
+            mp_task_heap = malloc(mp_task_heap_size); // todo: make heap size configurable or "extendable"
             break;
     }
     #else
     // Allocate the uPy heap using malloc and get the largest available region
     size_t mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-    void *mp_task_heap = malloc(mp_task_heap_size);
+    void *mp_task_heap = malloc(mp_task_heap_size); // todo: make heap size configurable or "extendable"
     #endif
 
 soft_reset:
@@ -107,6 +112,8 @@ soft_reset:
     mp_obj_list_init(mp_sys_argv, 0);
     mp_context_refresh();
     readline_init0();
+
+    // todo: add hook for ports to stop all other running contexts when rebooting
 
     // initialise peripherals
     machine_pins_init();
@@ -130,6 +137,7 @@ soft_reset:
                 break;
             }
         }
+        // todo: make sure REPL task does not starve IDLE0 task (b/c IDLE0 task cleans up memory from dead tasks)
     }
 
     machine_timer_deinit_all();

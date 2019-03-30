@@ -7,6 +7,15 @@ The advantage is that additional code can be executed alongside existing code us
 See readme below for information on the foundation - [MicroPython](https://github.com/micropython/micropython). 
 
 
+
+#### Trouble Compiling for Unix on Mac? (ffi.h)
+This [issue](https://github.com/micropython/micropython/issues/253) shows how to fix it
+```brew link libffi``` - tells you what to do
+```export PKG_CONFIG_PATH="/usr/local/opt/libffi/lib/pkgconfig"``` - is more or less what you need to do (make sure that exported variable is accessible in the shell that you plan to use)
+
+#### Semaphores Deprecated on Unix for Mac?
+[Check out this pull request](https://github.com/micropython/micropython/pull/4465)
+
 The MicroPython project
 =======================
 <p align="center">

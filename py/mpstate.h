@@ -35,6 +35,7 @@
 #include "py/obj.h"
 #include "py/objlist.h"
 #include "py/objexcept.h"
+#include "py/parse.h"
 
 // This file contains structures defining the state of the MicroPython
 // memory system, runtime and virtual machine.  The state is a global
@@ -254,11 +255,34 @@ typedef struct _mp_state_ctx_t {
     mp_state_mem_t mem;
 } mp_state_ctx_t;
 
-typedef struct _mp_context_node_t{
+typedef struct _mp_context_node_t mp_context_node_t;
+
+typedef struct _mp_context_dynmem_node_t{
+    struct _mp_context_node_t*          context;
+    void*                               mem;
+    size_t                              size;
+    struct _mp_context_dynmem_node_t*   next;
+}mp_context_dynmem_node_t;
+
+typedef struct _mp_task_args_t {
+    mp_parse_input_kind_t   input_kind;
+    void*                   source;
+    void*                   addtl;
+}mp_task_args_t;
+
+struct _mp_context_node_t{
     uint32_t                    id;
+    int32_t                     status;
     mp_state_ctx_t*             state;
+    mp_task_args_t              args;
+    void*                       threadctrl;
+    mp_context_dynmem_node_t*   memhead;
     struct _mp_context_node_t*  next;
-}mp_context_node_t;
+};
+
+#define MP_CNOM             0 // nominal
+#define MP_CSUSP  (0x01 << 0) // suspended
+
 
 extern mp_obj_dict_t mp_active_dict_main;
 extern mp_obj_list_t mp_active_sys_path_obj;
@@ -266,14 +290,27 @@ extern mp_obj_list_t mp_active_sys_argv_obj;
 extern mp_obj_dict_t mp_active_loaded_modules_dict; 
 
 extern mp_context_node_t* mp_context_head;
-extern mp_context_node_t mp_active_context;
+extern mp_context_node_t* mp_active_context;
+extern mp_context_node_t  mp_active_context_mirror;
+extern volatile uint32_t mp_current_tID;
 
 void mp_context_refresh( void );
 void mp_context_switch(mp_context_node_t* node);
 
-void mp_task_register( uint32_t tID );
+mp_context_node_t* mp_context_append_new( void );
+void mp_context_remove( mp_context_node_t* node );
+mp_context_node_t* mp_context_by_tid( uint32_t tID );
+
+
+void* mp_context_dynmem_alloc( size_t size, mp_context_node_t* context );
+int8_t mp_context_dynmem_free( void* mem, mp_context_node_t* context );
+int8_t mp_context_dynmem_free_all( mp_context_node_t* context );
+
+mp_context_node_t* mp_task_register( uint32_t tID, void* args );
 void mp_task_remove( uint32_t tID );
 void mp_task_switched_in( uint32_t tID );
+void* mp_task_alloc( size_t size, uint32_t tID );
+int8_t mp_task_free( void* mem, uint32_t tID );
 
 typedef mp_context_node_t* mp_context_iter_t;
 mp_context_iter_t mp_context_iter_first( mp_context_iter_t head );
@@ -281,18 +318,27 @@ bool mp_context_iter_done( mp_context_iter_t iter );
 mp_context_iter_t mp_context_iter_next( mp_context_iter_t iter );
 void mp_context_foreach(mp_context_iter_t head, void (*f)(mp_context_iter_t iter, void*), void* args);
 
-#define MP_CONTEXT_DEFAULT_ID 0 // ToDo: move this into proper configuration files
 #define MP_CONTEXT_PTR_FROM_ITER(iter) ((mp_context_node_t*)iter)
 #define MP_ITER_FROM_CONTEXT_PTR(cptr) ((mp_context_iter_t)cptr)
 
-#define MP_STATE_VM(x) (mp_active_context.state->vm.x)
-#define MP_STATE_MEM(x) (mp_active_context.state->mem.x)
+
+typedef mp_context_dynmem_node_t* mp_context_dynmem_iter_t;
+mp_context_dynmem_iter_t mp_dynmem_iter_first( mp_context_dynmem_iter_t head );
+bool mp_dynmem_iter_done( mp_context_dynmem_iter_t iter );
+mp_context_dynmem_iter_t mp_dynmem_iter_next( mp_context_dynmem_iter_t iter );
+void mp_dynmem_foreach(mp_context_dynmem_iter_t head, void (*f)(mp_context_dynmem_iter_t iter, void*), void* args);
+
+#define MP_DYNMEM_PTR_FROM_ITER(iter) ((mp_context_dynmem_node_t*)iter)
+#define MP_ITER_FROM_DYNMEM_PTR(dptr) ((mp_context_dynmem_iter_t)dptr)
+
+#define MP_STATE_VM(x) (mp_active_context_mirror.state->vm.x)
+#define MP_STATE_MEM(x) (mp_active_context_mirror.state->mem.x)
 
 #if MICROPY_PY_THREAD
 extern mp_state_thread_t *mp_thread_get_state(void);
 #define MP_STATE_THREAD(x) (mp_thread_get_state()->x)
 #else
-#define MP_STATE_THREAD(x) (mp_active_context.state->thread.x)
+#define MP_STATE_THREAD(x) (mp_active_context_mirror.state->thread.x)
 #endif
 
 #endif // MICROPY_INCLUDED_PY_MPSTATE_H
