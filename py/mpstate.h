@@ -299,6 +299,8 @@ void mp_context_switch(mp_context_node_t* node);
 
 mp_context_node_t* mp_context_append_new( void );
 void mp_context_remove( mp_context_node_t* node );
+mp_context_node_t* mp_context_by_tid( uint32_t tID );
+
 
 void* mp_context_dynmem_alloc( size_t size, mp_context_node_t* context );
 int8_t mp_context_dynmem_free( void* mem, mp_context_node_t* context );
