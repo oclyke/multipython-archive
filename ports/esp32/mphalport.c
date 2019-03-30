@@ -115,6 +115,11 @@ void mp_hal_delay_ms(uint32_t ms) {
             break;
         }
         MICROPY_EVENT_POLL_HOOK
+        if( (MP_STATE_VM(sched_state) == MP_SCHED_IDLE) ){
+            t1 = esp_timer_get_time();
+            dt = t1 - t0;
+            vTaskDelay( ((us - dt)/1000) / portTICK_PERIOD_MS ); // since scheduler is idle we can vTaskDelay
+        }
         ulTaskNotifyTake(pdFALSE, 1);
     }
     if (dt < us) {
