@@ -7,6 +7,7 @@ The multipython module is designed to allow creation and execution of new MicroP
 #include "py/binary.h"
 #include "py/builtin.h"
 #include "py/compile.h"
+#include "py/mperrno.h"
 #include "py/gc.h"
 #include "py/mphal.h"
 #include "py/mpstate.h"
@@ -30,58 +31,386 @@ The multipython module is designed to allow creation and execution of new MicroP
 
 #include <string.h>
 
-portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
-
-// Temporary testing functions
-STATIC mp_obj_t multipython_show_context_list( void ) {
-    mp_context_iter_t iter = NULL;
-    uint32_t count = 0;
-    mp_print_str(&mp_plat_print, "Context Info:\n");
-    for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
-        mp_printf(&mp_plat_print, "%08X: ID 0x%8X, state 0x%08X, has dynmem %d\n", count++, (MP_CONTEXT_PTR_FROM_ITER(iter)->id), (MP_CONTEXT_PTR_FROM_ITER(iter)->state), (MP_CONTEXT_PTR_FROM_ITER(iter)->memhead != NULL) );
-    }
-    mp_print_str(&mp_plat_print, "--- END ---\n");
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(multipython_show_context_list_obj, multipython_show_context_list);
-
-STATIC mp_obj_t multipython_show_context_dynmem( void ) {
-    mp_context_iter_t iter = NULL;
-    uint32_t count = 0;
-    mp_print_str(&mp_plat_print, "Context Info:\n");
-    for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
-        mp_printf(&mp_plat_print, "%08X: ID 0x%8X, state 0x%08X, has dynmem %d\n", count++, (MP_CONTEXT_PTR_FROM_ITER(iter)->id), (MP_CONTEXT_PTR_FROM_ITER(iter)->state), (MP_CONTEXT_PTR_FROM_ITER(iter)->memhead != NULL) );
-        if((MP_CONTEXT_PTR_FROM_ITER(iter)->memhead != NULL)){
-            mp_context_dynmem_iter_t memiter = NULL;
-            for( memiter = mp_dynmem_iter_first(MP_ITER_FROM_DYNMEM_PTR(MP_CONTEXT_PTR_FROM_ITER(iter)->memhead)); !mp_dynmem_iter_done(memiter); memiter = mp_dynmem_iter_next(memiter) ){
-                mp_printf(&mp_plat_print, "%+2sdynmem ctx 0x%8X,   mem 0x%8X, size 0x%08X\n", " ", (MP_CONTEXT_PTR_FROM_ITER(iter)->id), (MP_DYNMEM_PTR_FROM_ITER(memiter)->mem), (MP_DYNMEM_PTR_FROM_ITER(memiter)->size) );
-            }
-        }
-    }
-    mp_print_str(&mp_plat_print, "--- END ---\n");
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(multipython_show_context_dynmem_obj, multipython_show_context_dynmem);
-
-STATIC mp_obj_t multipython_new_context( void ) {
-    static uint32_t newcontextcount = 0;
-    mp_task_register( ++newcontextcount, NULL );
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(multipython_new_context_obj, multipython_new_context);
-
-STATIC mp_obj_t multipython_remove_task( mp_obj_t tID ) {
-    mp_task_remove( mp_obj_int_get_truncated(tID) );
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_remove_task_obj, multipython_remove_task);
-
-
 // MicroPython runs as a task under FreeRTOS
 #define MULTIPYTHON_TASK_PRIORITY        (ESP_TASK_PRIO_MIN + 1)
 #define MULTIPYTHON_TASK_STACK_SIZE      (16 * 1024)
 #define MULTIPYTHON_TASK_STACK_LEN       (MULTIPYTHON_TASK_STACK_SIZE / sizeof(StackType_t))
 
+// globals
+portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+
+// Forward declarations
+mp_obj_t execute_from_str(const char *str);
+void multipython_task_template( void* void_context );
+
+// helper functions (not visible to users)
+STATIC mp_obj_t multipython_get_context_dict( mp_context_node_t* context, mp_int_t position ) {
+    if( context == NULL ){ return mp_const_none; }
+
+    mp_obj_t context_dict = mp_obj_new_dict(7);
+
+    const char* str_key_pos = "pos";
+    const char* str_key_tID = "tID";
+    const char* str_key_state = "state";
+    const char* str_key_mem = "mem";
+    const char* str_key_thread = "thread";
+    const char* str_key_args = "args";
+    const char* str_key_status = "status";
+
+    mp_obj_t key_pos = mp_obj_new_str_via_qstr(str_key_pos, strlen(str_key_pos));
+    mp_obj_t key_tID = mp_obj_new_str_via_qstr(str_key_tID, strlen(str_key_tID));
+    mp_obj_t key_state = mp_obj_new_str_via_qstr(str_key_state, strlen(str_key_state));
+    mp_obj_t key_mem = mp_obj_new_str_via_qstr(str_key_mem, strlen(str_key_mem));
+    mp_obj_t key_thread = mp_obj_new_str_via_qstr(str_key_thread, strlen(str_key_thread));
+    mp_obj_t key_args = mp_obj_new_str_via_qstr(str_key_args, strlen(str_key_args));
+    mp_obj_t key_status = mp_obj_new_str_via_qstr(str_key_status, strlen(str_key_status));
+
+    mp_obj_t pos;
+    if(position < 0){ pos = mp_const_none; }
+    else{ pos = mp_obj_new_int(position); }
+    mp_obj_t tID = mp_obj_new_int((mp_int_t)context->id);
+    mp_obj_t state = mp_obj_new_int((mp_int_t)context->state);
+    mp_obj_t mem = mp_obj_new_int((mp_int_t)context->memhead);
+    mp_obj_t thread = mp_obj_new_int((mp_int_t)context->threadctrl);
+    mp_obj_t args = mp_obj_new_int((mp_int_t)&context->args);
+    mp_obj_t status = mp_obj_new_int((mp_int_t)context->status);
+
+    mp_obj_dict_store( context_dict,    key_pos,       pos      );
+    mp_obj_dict_store( context_dict,    key_tID,       tID      );
+    mp_obj_dict_store( context_dict,    key_state,     state    );
+    mp_obj_dict_store( context_dict,    key_mem,       mem      );
+    mp_obj_dict_store( context_dict,    key_thread,    thread   );
+    mp_obj_dict_store( context_dict,    key_args,      args     );
+    mp_obj_dict_store( context_dict,    key_status,    status   );
+
+    return context_dict;
+}
+
+void multipython_end_task( uint32_t taskID ){
+    xTaskHandle task = (xTaskHandle)taskID;
+    mp_context_node_t* context = mp_context_by_tid( taskID );
+    if( context == mp_context_head )                { mp_raise_OSError(MP_EACCES); }
+    if( ( task == NULL ) || ( context == NULL ) )   { mp_raise_OSError(MP_ENXIO); }
+    portENTER_CRITICAL(&mux);
+    mp_task_remove( taskID );
+    vTaskDelete(task);     
+    portEXIT_CRITICAL(&mux);  
+}
+
+void multipython_suspend_task( uint32_t taskID ){
+    xTaskHandle task = (xTaskHandle)taskID;
+    mp_context_node_t* context = mp_context_by_tid( taskID );
+    if( context == mp_context_head )                { mp_raise_OSError(MP_EACCES); }
+    if( ( task == NULL ) || ( context == NULL ) )   { mp_raise_OSError(MP_ENXIO); }
+    context->status |= MP_CSUSP;
+    vTaskSuspend(task);
+}
+
+int8_t multipython_resume_task( uint32_t taskID ){
+    xTaskHandle task = (xTaskHandle)taskID;
+    mp_context_node_t* context = mp_context_by_tid( taskID );
+    if( context == mp_context_head )                { mp_raise_OSError(MP_EACCES); }
+    if( ( task == NULL ) || ( context == NULL ) )   { mp_raise_OSError(MP_ENXIO); }
+    if( !(context->status & MP_CSUSP) )             { return -1; }
+    context->status &= ~MP_CSUSP;
+    vTaskResume(task);
+    return(0);
+}
+
+
+
+
+// interface 
+STATIC mp_obj_t multipython_start(size_t n_args, const mp_obj_t *args) {
+    // start new processes (contexts)
+
+    if(n_args == 0){ return mp_const_none; }
+
+    mp_context_node_t* context = mp_task_register( 0, NULL ); // register a task with unknown ID and NULL additional arguments
+    if( context == NULL ){
+        mp_raise_OSError(MP_ENOMEM);
+        return mp_const_none; 
+    }
+
+    const char *str = mp_obj_str_get_str(args[0]);
+    size_t len = strlen(str) + 1;
+
+    void* source = mp_context_dynmem_alloc( len, context ); // allocate global memory tied to the allocated context
+    if( source == NULL ){ 
+        mp_context_remove( context );
+        mp_raise_OSError(MP_ENOMEM);
+        return mp_const_none; 
+    }
+    memcpy(source, (void*)str, len);
+    context->args.input_kind = MP_PARSE_FILE_INPUT;
+    context->args.source = source;
+
+    if( n_args == 2 ){
+        if( mp_obj_int_get_truncated( args[1] ) == MP_PARSE_SINGLE_INPUT ){
+            context->args.input_kind = MP_PARSE_SINGLE_INPUT;
+        }
+    }
+
+    xTaskCreate(multipython_task_template, "", MULTIPYTHON_TASK_STACK_LEN, (void*)context, MULTIPYTHON_TASK_PRIORITY+1, NULL);
+    return mp_const_none;
+}
+// STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_start_obj, 1, 2, multipython_start);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_start_obj, 1, 2, multipython_start);
+
+STATIC mp_obj_t multipython_stop(size_t n_args, const mp_obj_t *args) {
+    // stop all processes
+    // optionally use a list of tIDs that specify which processes to stop
+    // if 'None' is passed as an argument then the current context is stopped
+    // returns a list of tIDs for stopped tasks
+
+    mp_context_iter_t iter = NULL;
+    mp_obj_t stopped_contexts = mp_obj_new_list( 0, NULL );
+
+    // append items to the list
+    switch( n_args ){
+        case 1:
+            if(mp_obj_is_int(args[0])){
+                for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
+                    if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(args[0]) ){
+                        multipython_end_task( (uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id );
+                        mp_obj_list_append(stopped_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
+                    }
+                }
+            }else if( mp_obj_is_type(args[0], &mp_type_list) ){
+                size_t size;
+                mp_obj_t* items;
+                mp_obj_list_get(args[0], &size, &items );
+                for( size_t indi = 0; indi < size; indi++ ){
+                    if( !mp_obj_is_type(items[indi], &mp_type_int) ){
+                        mp_raise_TypeError("list element of non-integer type");
+                        return mp_const_none;
+                    }
+                }
+                for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
+                    for( size_t indi = 0; indi < size; indi++ ){
+                        if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(items[0]) ){
+                            multipython_end_task( (uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id );
+                            mp_obj_list_append(stopped_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
+                        }
+                    }
+                }
+            }else if( mp_obj_is_type(args[0], &mp_type_NoneType ) ){
+                multipython_end_task( (uint32_t)mp_active_context->id );
+                mp_obj_list_append(stopped_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
+            }else{
+                mp_raise_TypeError("expects integer or list of integers");
+                return mp_const_none;
+            }
+            break;
+
+        case 0:
+        default:
+            for(iter = mp_context_iter_next(mp_context_iter_first(mp_context_head)); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
+                multipython_end_task( (uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id );
+                mp_obj_list_append(stopped_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
+            }
+            break;
+    }
+    return stopped_contexts;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_stop_obj, 0, 1, multipython_stop);
+
+STATIC mp_obj_t multipython_suspend(size_t n_args, const mp_obj_t *args) {
+    // suspend all processes
+    // optionally use a list of tIDs that specify which processes to suspend
+    // if 'None' is passed as an argument then the current context is suspended
+    // returns a list of tIDs for suspended tasks
+
+    mp_context_iter_t iter = NULL;
+    mp_obj_t suspended_contexts = mp_obj_new_list( 0, NULL );
+
+    // append items to the list
+    switch( n_args ){
+        case 1:
+            if(mp_obj_is_int(args[0])){
+                for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
+                    if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(args[0]) ){
+                        multipython_suspend_task( (uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id );
+                        mp_obj_list_append(suspended_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
+                    }
+                }
+            }else if( mp_obj_is_type(args[0], &mp_type_list) ){
+                size_t size;
+                mp_obj_t* items;
+                mp_obj_list_get(args[0], &size, &items );
+                for( size_t indi = 0; indi < size; indi++ ){
+                    if( !mp_obj_is_type(items[indi], &mp_type_int) ){
+                        mp_raise_TypeError("list element of non-integer type");
+                        return mp_const_none;
+                    }
+                }
+                for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
+                    for( size_t indi = 0; indi < size; indi++ ){
+                        if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(items[0]) ){
+                            multipython_suspend_task( (uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id );
+                            mp_obj_list_append(suspended_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
+                        }
+                    }
+                }
+            }else if( mp_obj_is_type(args[0], &mp_type_NoneType ) ){
+                multipython_suspend_task( (uint32_t)mp_active_context->id );
+                mp_obj_list_append(suspended_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
+            }else{
+                mp_raise_TypeError("expects integer or list of integers");
+                return mp_const_none;
+            }
+            break;
+
+        case 0:
+        default:
+            for(iter = mp_context_iter_next(mp_context_iter_first(mp_context_head)); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
+                multipython_suspend_task( (uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id );
+                mp_obj_list_append(suspended_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
+            }
+            break;
+    }
+    return suspended_contexts;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_suspend_obj, 0, 1, multipython_suspend);
+
+STATIC mp_obj_t multipython_resume(size_t n_args, const mp_obj_t *args) {
+    // resume all processes
+    // optionally use a list of tIDs that specify which processes to resume
+    // if 'None' is passed as an argument then the current context is suspended
+    // returns a list of tIDs for suspended tasks
+
+    mp_context_iter_t iter = NULL;
+    mp_obj_t resumed_contexts = mp_obj_new_list( 0, NULL );
+
+    // append items to the list
+    switch( n_args ){
+        case 1:
+            if(mp_obj_is_int(args[0])){
+                for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
+                    if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(args[0]) ){
+                        if( multipython_resume_task( (uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id ) == 0){
+                            mp_obj_list_append(resumed_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
+                        }
+                    }
+                }
+            }else if( mp_obj_is_type(args[0], &mp_type_list) ){
+                size_t size;
+                mp_obj_t* items;
+                mp_obj_list_get(args[0], &size, &items );
+                for( size_t indi = 0; indi < size; indi++ ){
+                    if( !mp_obj_is_type(items[indi], &mp_type_int) ){
+                        mp_raise_TypeError("list element of non-integer type");
+                        return mp_const_none;
+                    }
+                }
+                for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
+                    for( size_t indi = 0; indi < size; indi++ ){
+                        if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(items[0]) ){
+                            if( multipython_resume_task( (uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id ) ){
+                                mp_obj_list_append(resumed_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
+                            }
+                        }
+                    }
+                }
+            }else if( mp_obj_is_type(args[0], &mp_type_NoneType ) ){
+                // multipython_resume_task( (uint32_t)mp_active_context->id );
+                // mp_obj_list_append(resumed_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
+            }else{
+                mp_raise_TypeError("expects integer or list of integers");
+                return mp_const_none;
+            }
+            break;
+
+        case 0:
+        default:
+            for(iter = mp_context_iter_next(mp_context_iter_first(mp_context_head)); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
+                if( multipython_resume_task( (uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id ) ){
+                    mp_obj_list_append(resumed_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
+                }
+            }
+            break;
+    }
+    return resumed_contexts;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_resume_obj, 0, 1, multipython_resume);
+
+STATIC mp_obj_t multipython_get(size_t n_args, const mp_obj_t *args) {
+    // return a list of dictionaries that represent each context
+    // optionally use a list of tIDs for which to return the information as the argument
+    // if 'None' is passed as an argument then the information for the current context is returned
+
+    size_t num_entries = 0;
+    mp_context_iter_t iter = NULL;
+    mp_obj_t context_list = mp_obj_new_list( 0, NULL );
+
+    // append items to the list
+    switch( n_args ){
+        case 1:
+            if(mp_obj_is_int(args[0])){
+                for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
+                    if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(args[0]) ){
+                        mp_obj_list_append(context_list, multipython_get_context_dict( MP_CONTEXT_PTR_FROM_ITER(iter), num_entries++ ));
+                    }
+                }
+            }else if( mp_obj_is_type(args[0], &mp_type_list) ){
+                size_t size;
+                mp_obj_t* items;
+                mp_obj_list_get(args[0], &size, &items );
+                for( size_t indi = 0; indi < size; indi++ ){
+                    if( !mp_obj_is_type(items[indi], &mp_type_int) ){
+                        mp_raise_TypeError("list element of non-integer type");
+                        return mp_const_none;
+                    }
+                }
+                for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
+                    for( size_t indi = 0; indi < size; indi++ ){
+                        if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(items[0]) ){
+                            mp_obj_list_append(context_list, multipython_get_context_dict( MP_CONTEXT_PTR_FROM_ITER(iter), num_entries++ ));
+                        }
+                    }
+                }
+            }else if( mp_obj_is_type(args[0], &mp_type_NoneType ) ){
+                mp_obj_list_append(context_list, multipython_get_context_dict( mp_active_context, -1 ));
+            }else{
+                mp_raise_TypeError("expects integer or list of integers");
+                return mp_const_none;
+            }
+            break;
+
+        case 0:
+        default:
+            for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
+                mp_obj_list_append(context_list, multipython_get_context_dict( MP_CONTEXT_PTR_FROM_ITER(iter), num_entries++ ));
+            }
+            break;
+    }
+    return context_list;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_get_obj, 0, 1, multipython_get);
+
+
+
+// Module Definitions
+
+STATIC const mp_rom_map_elem_t mp_module_multipython_globals_table[] = {
+    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_multipython) },
+    { MP_ROM_QSTR(MP_QSTR_start), MP_ROM_PTR(&multipython_start_obj) },
+    { MP_ROM_QSTR(MP_QSTR_stop), MP_ROM_PTR(&multipython_stop_obj) },
+    { MP_ROM_QSTR(MP_QSTR_suspend), MP_ROM_PTR(&multipython_suspend_obj) },
+    { MP_ROM_QSTR(MP_QSTR_resume), MP_ROM_PTR(&multipython_resume_obj) },
+    { MP_ROM_QSTR(MP_QSTR_get), MP_ROM_PTR(&multipython_get_obj) },
+};
+STATIC MP_DEFINE_CONST_DICT(mp_module_multipython_globals, mp_module_multipython_globals_table);
+
+const mp_obj_module_t mp_module_multipython = {
+    .base = { &mp_type_module },
+    .globals = (mp_obj_dict_t*)&mp_module_multipython_globals,
+};
+
+
+
+
+// multipython task template
 mp_obj_t execute_from_str(const char *str) {
     nlr_buf_t nlr;
     if (nlr_push(&nlr) == 0) {
@@ -98,7 +427,7 @@ mp_obj_t execute_from_str(const char *str) {
     }
 }
 
-void testTask( void* void_context ){
+void multipython_task_template( void* void_context ){
     // when a new task spawns it already has a context allocated, but
     // it is up to the task to set the context id correctly
     mp_context_node_t* context = (mp_context_node_t*)void_context;
@@ -164,80 +493,28 @@ soft_reset:
 
     uint8_t error = 0;
 
-    // for (;;) {
-        // if (pyexec_mode_kind == PYEXEC_MODE_RAW_REPL) {
-        //     vprintf_like_t vprintf_log = esp_log_set_vprintf(vprintf_null);
-        //     if (pyexec_raw_repl() != 0) {
-        //         break;
-        //     }
-        //     esp_log_set_vprintf(vprintf_log);
-        // } else {
-        //     if (pyexec_friendly_repl() != 0) {
-        //         break;
-        //     }
-        // }
-
-        // const char str0[] = "print('this is str0, baby!')";
-        // const char str1[] = "print('hasta la vista, baby! - str1')";
-        // const char str2[] = "print('never gonna give you up, never gonna let you down - str2')";
-        // const char str3[] = "print('get over here - str3')";
-
-        // const char* strns[4] = {str0, str1, str2, str3};
-
-        // uint8_t which = 0;
-        // // uint8_t which = ((uint32_t)pvParams);
-        // if( which > 3){ which = 3; }
-
-        if( context->args.source != NULL ){
-            if( context->args.input_kind == MP_PARSE_FILE_INPUT ){
-                int status = pyexec_file( (char*)(context->args.source) );
-                // mp_printf(&mp_plat_print, "pyexec_file returned %d\n", status );
-            }else if( context->args.input_kind == MP_PARSE_SINGLE_INPUT){
-                if ( execute_from_str( (char*)(context->args.source) ) ){
-                    error = 1;
-                }
+    if( context->args.source != NULL ){
+        if( context->args.input_kind == MP_PARSE_FILE_INPUT ){
+            // pyexec_file( (char*)(context->args.source) );
+            if( pyexec_file( (char*)(context->args.source) ) != 1 ){
+                error = 1;
+            }
+            // mp_printf(&mp_plat_print, "pyexec_file returned %d\n", status );
+        }else if( context->args.input_kind == MP_PARSE_SINGLE_INPUT){
+            if ( execute_from_str( (char*)(context->args.source) ) ){
+                error = 1;
             }
         }
-
-        // vTaskDelay(2000/portTICK_PERIOD_MS);
-
-        // int pyexec_raw_repl(void);
-        // int pyexec_friendly_repl(void);
-        // int pyexec_file(const char *filename);
-        // int pyexec_frozen_module(const char *name);
-
-        // if(args->input_kind == MP_PARSE_FILE_INPUT){
-        //     // Interpret the source as a string filename
-        //     if(pyexec_file((char*)(args->source)) == 0){
-        //         reset = 0; // if no errors then exit was intentional
-        //     }
-        // }else if(args->input_kind == MP_PARSE_SINGLE_INPUT){
-        //     // Interpret the source as a string input
-        // }else{
-        //     // Don't do anything... 
-        // }
-
-        // break; // used to leave this loop!
-    // }
-
-    // machine_timer_deinit_all();
-
-    // #if MICROPY_PY_THREAD
-    // mp_thread_deinit();
-    // #endif
+    }
 
     gc_sweep_all();
-
-    // // deinitialise peripherals
-    // machine_pins_deinit();
-    // usocket_events_deinit();
 
     mp_deinit();
     fflush(stdout);
     const uint8_t reset = 0;
     
     if(error){ // todo: eventually we will want to be able to catch errors and restart, but allow the task to go to end if it ended of it's own accord
-        vTaskDelay(500/portTICK_PERIOD_MS);
+        // vTaskDelay(500/portTICK_PERIOD_MS);
         printf("Error. Current context ID: 0x%x\n", (uint32_t)context->id);
         mp_hal_stdout_tx_str("MPY task: soft restart\r\n"); // todo: add more info saying which task is restarting
         if(reset){
@@ -245,157 +522,8 @@ soft_reset:
         }
     }
 
-
-    // mp_hal_stdout_tx_str("MPY task: death (debug output)\r\n");
-
     portENTER_CRITICAL(&mux);
     mp_task_remove( mp_current_tID );
     portEXIT_CRITICAL(&mux);
     vTaskDelete(NULL);  // When a task deletes itself make sure to release the mux *before* dying
 }
-
-STATIC mp_obj_t testCompilationUsingxTaskCreate( void ){
-    static uint32_t temp_modmultipython_num_tasks = 0;
-    xTaskCreate(testTask, "test_task", MULTIPYTHON_TASK_STACK_LEN, (void*)temp_modmultipython_num_tasks++, MULTIPYTHON_TASK_PRIORITY+1, NULL);
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(multipython_new_task_obj, testCompilationUsingxTaskCreate);
-
-STATIC mp_obj_t getTaskID( void ){
-    mp_printf(&mp_plat_print, "The current TaskID is: 0x%8X\n", mp_current_tID );
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(getTaskID_obj, getTaskID);
-
-extern mp_context_node_t* mp_context_by_tid( uint32_t tID );
-STATIC mp_obj_t multipython_get_context_by_id( mp_obj_t tID ) {
-    mp_context_node_t* context = mp_context_by_tid( mp_obj_int_get_truncated(tID) );
-    mp_printf(&mp_plat_print, "The context for that ID is: 0x%8X\n", (uint32_t)context );
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_get_context_by_id_obj, multipython_get_context_by_id);
-
-STATIC mp_obj_t multipython_task_allocate( mp_obj_t size ) {
-    mp_task_alloc( (size_t)mp_obj_int_get_truncated(size), mp_current_tID );
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_task_allocate_obj, multipython_task_allocate);
-
-STATIC mp_obj_t multipython_task_free( mp_obj_t ptr ) {
-    int8_t retval = mp_task_free( (void*)mp_obj_int_get_truncated(ptr), mp_current_tID );
-    if(retval){ mp_print_str(&mp_plat_print, "There was a problem freeing that memory\n"); }
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_task_free_obj, multipython_task_free);
-
-extern int8_t mp_task_free_all( uint32_t tID );
-STATIC mp_obj_t multipython_task_free_all( void ) {
-    int8_t retval= mp_task_free_all( mp_current_tID );
-    if(retval){ mp_print_str(&mp_plat_print, "There was a problem freeing all memory\n"); }
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(multipython_task_free_all_obj, multipython_task_free_all);
-
-STATIC mp_obj_t multipython_task_end( mp_obj_t tID ) {
-    // It so happens that in the ESP32 port (using FreeRTOS) the tID *is* the task handle, 
-    // just as a uint32_t. So we can cast it to the xTaskHandle type 
-    uint32_t taskID = mp_obj_int_get_truncated(tID);
-    xTaskHandle task = (xTaskHandle)taskID;
-    mp_context_node_t* context = mp_context_by_tid( taskID );
-    if(( task == NULL ) || ( context == NULL ) || ( context == mp_context_head )){
-        mp_print_str(&mp_plat_print, "Error. You must present a valid task to kill\n");
-        return mp_const_none;
-    }
-
-    portENTER_CRITICAL(&mux);
-    mp_task_remove( taskID );
-    vTaskDelete(task);     
-    portEXIT_CRITICAL(&mux);     
-    return mp_const_none; // todo: make sure IDLE0 task is not starved so that the task's resources can actually be freed
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_task_end_obj, multipython_task_end);
-
-STATIC mp_obj_t multipython_multiarg(size_t n_args, const mp_obj_t *args) {
-
-    if(n_args == 0){ return mp_const_none; }
-
-    mp_context_node_t* context = mp_task_register( 0, NULL ); // register a task with unknown ID and NULL additional arguments
-    if( context == NULL ){ mp_print_str(&mp_plat_print, "Error. No memory for new context\n"); return mp_const_none; }
-
-    const char *str = mp_obj_str_get_str(args[0]);
-    size_t len = strlen(str) + 1;
-
-    void* source = mp_context_dynmem_alloc( len, context ); // allocate global memory tied to the allocated context
-    if( source == NULL ){ 
-        mp_context_remove( context );
-        mp_print_str(&mp_plat_print, "Error. No memory for new source\n"); 
-        return mp_const_none; 
-    }
-    memcpy(source, (void*)str, len);
-    context->args.input_kind = MP_PARSE_SINGLE_INPUT;
-    context->args.source = source;
-
-    if( n_args == 2 ){
-        if( mp_obj_int_get_truncated( args[1] ) == MP_PARSE_FILE_INPUT ){
-            context->args.input_kind = MP_PARSE_FILE_INPUT;
-        }
-    }
-
-    xTaskCreate(testTask, "", MULTIPYTHON_TASK_STACK_LEN, (void*)context, MULTIPYTHON_TASK_PRIORITY+1, NULL);
-    return mp_const_none;
-}
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_multiarg_obj, 1, 2, multipython_multiarg);
-
-STATIC mp_obj_t multipython_tasks_clean_all( void ) {
-    mp_context_iter_t iter = NULL;
-    mp_print_str(&mp_plat_print, "Removing all MultiPython contexts\n");
-    for( iter = mp_context_iter_first(mp_context_iter_next(MP_ITER_FROM_CONTEXT_PTR(mp_context_head))); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter) ){
-        // Method four..... applying what I just learned.
-        mp_context_node_t* context = MP_CONTEXT_PTR_FROM_ITER(iter);
-        xTaskHandle task = (xTaskHandle)(context->id);  // need this b/c cant get it from context after removing context
-        if(( task == NULL ) || ( context == NULL ) || ( context == mp_context_head )){
-            mp_print_str(&mp_plat_print, "Error. You must present a valid task to kill\n");
-            return mp_const_none;
-        }
-        portENTER_CRITICAL(&mux);
-        mp_context_remove( context );
-        vTaskDelete( task ); // OH! Duh... once we remove 'context' we can't use 'context' to get the task ID to remove.
-        portEXIT_CRITICAL(&mux);
-    }
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(multipython_tasks_clean_all_obj, multipython_tasks_clean_all);
-
-STATIC mp_obj_t multipython_exec_file( mp_obj_t filename ) {
-    const char *str = mp_obj_str_get_str( filename );
-    pyexec_file( (char*)(str) );
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_exec_file_obj, multipython_exec_file);
-
-
-// Module Definitions
-
-STATIC const mp_rom_map_elem_t mp_module_multipython_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_multipython) },
-    { MP_ROM_QSTR(MP_QSTR_show_context_list), MP_ROM_PTR(&multipython_show_context_list_obj) },
-    { MP_ROM_QSTR(MP_QSTR_show_context_dynmem), MP_ROM_PTR(&multipython_show_context_dynmem_obj) },
-    { MP_ROM_QSTR(MP_QSTR_new_context), MP_ROM_PTR(&multipython_new_context_obj) },
-    { MP_ROM_QSTR(MP_QSTR_remove_task), MP_ROM_PTR(&multipython_remove_task_obj) },
-    // { MP_ROM_QSTR(MP_QSTR_new_task), MP_ROM_PTR(&multipython_new_task_obj) },
-    { MP_ROM_QSTR(MP_QSTR_get_task_id), MP_ROM_PTR(&getTaskID_obj) },
-    { MP_ROM_QSTR(MP_QSTR_get_context_by_id), MP_ROM_PTR(&multipython_get_context_by_id_obj) },
-    { MP_ROM_QSTR(MP_QSTR_task_allocate), MP_ROM_PTR(&multipython_task_allocate_obj) },
-    { MP_ROM_QSTR(MP_QSTR_task_free), MP_ROM_PTR(&multipython_task_free_obj) },
-    { MP_ROM_QSTR(MP_QSTR_task_free_all), MP_ROM_PTR(&multipython_task_free_all_obj) },
-    { MP_ROM_QSTR(MP_QSTR_task_end), MP_ROM_PTR(&multipython_task_end_obj) },
-    { MP_ROM_QSTR(MP_QSTR_new_task_source), MP_ROM_PTR(&multipython_multiarg_obj) },
-    { MP_ROM_QSTR(MP_QSTR_stop_all_tasks), MP_ROM_PTR(&multipython_tasks_clean_all_obj) },
-    { MP_ROM_QSTR(MP_QSTR_exec_file), MP_ROM_PTR(&multipython_exec_file_obj) },
-};
-STATIC MP_DEFINE_CONST_DICT(mp_module_multipython_globals, mp_module_multipython_globals_table);
-
-const mp_obj_module_t mp_module_multipython = {
-    .base = { &mp_type_module },
-    .globals = (mp_obj_dict_t*)&mp_module_multipython_globals,
-};
