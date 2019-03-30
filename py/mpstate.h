@@ -272,12 +272,17 @@ typedef struct _mp_task_args_t {
 
 struct _mp_context_node_t{
     uint32_t                    id;
+    int32_t                     status;
     mp_state_ctx_t*             state;
     mp_task_args_t              args;
     void*                       threadctrl;
     mp_context_dynmem_node_t*   memhead;
     struct _mp_context_node_t*  next;
 };
+
+#define MP_CNOM             0 // nominal
+#define MP_CSUSP  (0x01 << 0) // suspended
+
 
 extern mp_obj_dict_t mp_active_dict_main;
 extern mp_obj_list_t mp_active_sys_path_obj;
