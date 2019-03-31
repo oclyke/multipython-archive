@@ -87,7 +87,7 @@ STATIC void mp_thread_gc(int signo, siginfo_t *info, void *context) {
 
 void mp_thread_init(void) {
     pthread_key_create(&tls_key, NULL);
-    pthread_setspecific(tls_key, &(mp_active_context_mirror.state->thread));
+    pthread_setspecific(tls_key, &(mp_active_context_mirrors[MICROPY_GET_CORE_INDEX].state->thread));
 
     // create first entry in linked list of all threads
     thread = malloc(sizeof(thread_t));

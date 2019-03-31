@@ -59,15 +59,15 @@ typedef struct _ctx_thread_ctrl_t {
 } ctx_thread_ctrl_t;
 
 void mp_thread_init(void *stack, uint32_t stack_len) {
-    if( mp_active_context == NULL ){ return; }
+    if( mp_active_contexts[MICROPY_GET_CORE_INDEX] == NULL ){ return; }
 
-    mp_thread_set_state(&mp_active_context_mirror.state->thread);
-    ctx_thread_ctrl_t* thread_ctrl = (ctx_thread_ctrl_t*)mp_task_alloc( sizeof(ctx_thread_ctrl_t), mp_current_tID );
+    mp_thread_set_state(&mp_active_context_mirrors[MICROPY_GET_CORE_INDEX].state->thread);
+    ctx_thread_ctrl_t* thread_ctrl = (ctx_thread_ctrl_t*)mp_task_alloc( sizeof(ctx_thread_ctrl_t), mp_current_tIDs[MICROPY_GET_CORE_INDEX] );
     if( thread_ctrl == NULL ){ return; }// todo: handle this error (no heap)
-    mp_active_context->threadctrl = (void*)thread_ctrl;
+    mp_active_contexts[MICROPY_GET_CORE_INDEX]->threadctrl = (void*)thread_ctrl;
     // create the first entry in the linked list of all threads
     thread_ctrl->thread = &(thread_ctrl->entry0);
-    thread_ctrl->thread->id = (TaskHandle_t)mp_current_tID;
+    thread_ctrl->thread->id = (TaskHandle_t)mp_current_tIDs[MICROPY_GET_CORE_INDEX];
     thread_ctrl->thread->ready = 1;
     thread_ctrl->thread->arg = NULL;
     thread_ctrl->thread->stack = stack;
@@ -77,8 +77,8 @@ void mp_thread_init(void *stack, uint32_t stack_len) {
 }
 
 void mp_thread_gc_others(void) {
-    if( mp_active_context == NULL ){ return; }
-    ctx_thread_ctrl_t* thread_ctrl = (ctx_thread_ctrl_t*)mp_active_context->threadctrl;
+    if( mp_active_contexts[MICROPY_GET_CORE_INDEX] == NULL ){ return; }
+    ctx_thread_ctrl_t* thread_ctrl = (ctx_thread_ctrl_t*)mp_active_contexts[MICROPY_GET_CORE_INDEX]->threadctrl;
     if(thread_ctrl == NULL){ return; }
 
     mp_thread_mutex_lock(&(thread_ctrl->mux), 1);
@@ -105,8 +105,8 @@ void mp_thread_set_state(void *state) {
 }
 
 void mp_thread_start(void) {
-    if( mp_active_context == NULL ){ return; }
-    ctx_thread_ctrl_t* thread_ctrl = (ctx_thread_ctrl_t*)mp_active_context->threadctrl;
+    if( mp_active_contexts[MICROPY_GET_CORE_INDEX] == NULL ){ return; }
+    ctx_thread_ctrl_t* thread_ctrl = (ctx_thread_ctrl_t*)mp_active_contexts[MICROPY_GET_CORE_INDEX]->threadctrl;
     if(thread_ctrl == NULL){ return; }
 
     mp_thread_mutex_lock(&(thread_ctrl->mux), 1);
@@ -140,8 +140,8 @@ void mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack_size, i
     }
 
     // Get thread control from this context
-    if( mp_active_context == NULL ){ return; }
-    ctx_thread_ctrl_t* thread_ctrl = (ctx_thread_ctrl_t*)mp_active_context->threadctrl;
+    if( mp_active_contexts[MICROPY_GET_CORE_INDEX] == NULL ){ return; }
+    ctx_thread_ctrl_t* thread_ctrl = (ctx_thread_ctrl_t*)mp_active_contexts[MICROPY_GET_CORE_INDEX]->threadctrl;
     if(thread_ctrl == NULL){ return; }
 
     // Allocate linked-list node (must be outside thread_mutex lock)
@@ -175,8 +175,8 @@ void mp_thread_create(void *(*entry)(void*), void *arg, size_t *stack_size) {
 }
 
 void mp_thread_finish(void) {    
-    if( mp_active_context == NULL ){ return; }
-    ctx_thread_ctrl_t* thread_ctrl = (ctx_thread_ctrl_t*)mp_active_context->threadctrl;
+    if( mp_active_contexts[MICROPY_GET_CORE_INDEX] == NULL ){ return; }
+    ctx_thread_ctrl_t* thread_ctrl = (ctx_thread_ctrl_t*)mp_active_contexts[MICROPY_GET_CORE_INDEX]->threadctrl;
     if(thread_ctrl == NULL){ return; }
 
     mp_thread_mutex_lock(&(thread_ctrl->mux), 1);
@@ -230,8 +230,8 @@ void mp_thread_mutex_unlock(mp_thread_mutex_t *mutex) {
 }
 
 void mp_thread_deinit(void) {
-    if( mp_active_context == NULL ){ return; }
-    ctx_thread_ctrl_t* thread_ctrl = (ctx_thread_ctrl_t*)mp_active_context->threadctrl;
+    if( mp_active_contexts[MICROPY_GET_CORE_INDEX] == NULL ){ return; }
+    ctx_thread_ctrl_t* thread_ctrl = (ctx_thread_ctrl_t*)mp_active_contexts[MICROPY_GET_CORE_INDEX]->threadctrl;
     if(thread_ctrl == NULL){ return; }
 
     for (;;) {
