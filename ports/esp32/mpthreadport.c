@@ -190,31 +190,29 @@ void mp_thread_finish(void) {
 }
 
 void vPortCleanUpTCB(void *tcb) {
-    if (thread == NULL) {
-        // threading not yet initialised
-        return;
-    }
     thread_t *prev = NULL;
     mp_context_iter_t citer = NULL;
     for(citer = mp_context_iter_first(MP_ITER_FROM_CONTEXT_PTR(mp_context_head)); !mp_context_iter_done(citer); citer = mp_context_iter_next(citer)){
         ctx_thread_ctrl_t* thread_ctrl = (ctx_thread_ctrl_t*)(MP_CONTEXT_PTR_FROM_ITER(citer)->threadctrl);
-        mp_thread_mutex_lock(&(thread_ctrl->mux), 1);
-        for (thread_t *th = (thread_ctrl->thread); th != NULL; th = th->next) {
-            // unlink the node from the list
-            if ((void*)th->id == tcb) { // todo: make it more clear that tID, tcb, TaskHandle etc all mean the same thing
-                if (prev != NULL) {
-                    prev->next = th->next;
-                } else {
-                    // move the start pointer
-                    (thread_ctrl->thread) = th->next;
+        if( thread_ctrl != NULL ){ 
+            mp_thread_mutex_lock(&(thread_ctrl->mux), 1);
+            for (thread_t *th = (thread_ctrl->thread); th != NULL; th = th->next) {
+                // unlink the node from the list
+                if ((void*)th->id == tcb) { // todo: make it more clear that tID, tcb, TaskHandle etc all mean the same thing
+                    if (prev != NULL) {
+                        prev->next = th->next;
+                    } else {
+                        // move the start pointer
+                        (thread_ctrl->thread) = th->next;
+                    }
+                    // explicitly release all its memory
+                    m_del(thread_t, th, 1);
+                    mp_thread_mutex_unlock(&(thread_ctrl->mux));
+                    goto cleanup_complete;
                 }
-                // explicitly release all its memory
-                m_del(thread_t, th, 1);
-                mp_thread_mutex_unlock(&(thread_ctrl->mux));
-                goto cleanup_complete;
             }
+            mp_thread_mutex_unlock(&(thread_ctrl->mux));
         }
-        mp_thread_mutex_unlock(&(thread_ctrl->mux));
     }   
 cleanup_complete:; // Need this odd ';' to avoid 'label at the end of compund statement' error
 }
