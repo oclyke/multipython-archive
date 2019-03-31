@@ -145,17 +145,35 @@ STATIC mp_obj_t multipython_start(size_t n_args, const mp_obj_t *args) {
     context->args.input_kind = MP_PARSE_FILE_INPUT;
     context->args.source = source;
 
-    if( n_args == 2 ){
+    if( n_args >1 ){
         if( mp_obj_int_get_truncated( args[1] ) == MP_PARSE_SINGLE_INPUT ){
             context->args.input_kind = MP_PARSE_SINGLE_INPUT;
         }
     }
 
-    xTaskCreate(multipython_task_template, "", MULTIPYTHON_TASK_STACK_LEN, (void*)context, MULTIPYTHON_TASK_PRIORITY+1, NULL);
+    
+    if( n_args > 2 ){
+        uint8_t core = 0;
+        core = mp_obj_int_get_truncated( args[2] );
+        if( core > 1 ){
+            core = 1;
+        }
+        xTaskCreatePinnedToCore( multipython_task_template, "", MULTIPYTHON_TASK_STACK_LEN, (void*)context, MULTIPYTHON_TASK_PRIORITY+1, NULL, core );
+        //             /* Function to implement the task */
+        //                                        /* Name of the task */
+        //                                                       /* Stack size in words */
+        //                                                                              /* Task input parameter */
+        //                                                                                                      /* Priority of the task */
+        //                                                                                                                          /* Task handle. */
+        //                                                                                                                      /* Core where the task should run */
+    }else{
+        xTaskCreate(multipython_task_template, "", MULTIPYTHON_TASK_STACK_LEN, (void*)context, MULTIPYTHON_TASK_PRIORITY+1, NULL); // core determined by FreeRTOS
+    }    
+    
     return mp_const_none;
 }
 // STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_start_obj, 1, 2, multipython_start);
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_start_obj, 1, 2, multipython_start);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_start_obj, 1, 3, multipython_start);
 
 STATIC mp_obj_t multipython_stop(size_t n_args, const mp_obj_t *args) {
     // stop all processes
@@ -195,7 +213,7 @@ STATIC mp_obj_t multipython_stop(size_t n_args, const mp_obj_t *args) {
                     }
                 }
             }else if( mp_obj_is_type(args[0], &mp_type_NoneType ) ){
-                multipython_end_task( (uint32_t)mp_active_context->id );
+                multipython_end_task( (uint32_t)mp_active_contexts[MICROPY_GET_CORE_INDEX]->id );
                 mp_obj_list_append(stopped_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
             }else{
                 mp_raise_TypeError("expects integer or list of integers");
@@ -253,7 +271,7 @@ STATIC mp_obj_t multipython_suspend(size_t n_args, const mp_obj_t *args) {
                     }
                 }
             }else if( mp_obj_is_type(args[0], &mp_type_NoneType ) ){
-                multipython_suspend_task( (uint32_t)mp_active_context->id );
+                multipython_suspend_task( (uint32_t)mp_active_contexts[MICROPY_GET_CORE_INDEX]->id );
                 mp_obj_list_append(suspended_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
             }else{
                 mp_raise_TypeError("expects integer or list of integers");
@@ -370,7 +388,7 @@ STATIC mp_obj_t multipython_get(size_t n_args, const mp_obj_t *args) {
                     }
                 }
             }else if( mp_obj_is_type(args[0], &mp_type_NoneType ) ){
-                mp_obj_list_append(context_list, multipython_get_context_dict( mp_active_context, -1 ));
+                mp_obj_list_append(context_list, multipython_get_context_dict( mp_active_contexts[MICROPY_GET_CORE_INDEX], -1 ));
             }else{
                 mp_raise_TypeError("expects integer or list of integers");
                 return mp_const_none;
@@ -428,10 +446,13 @@ mp_obj_t execute_from_str(const char *str) {
 }
 
 void multipython_task_template( void* void_context ){
+
+    printf("hello from task. On core %d\n", xPortGetCoreID() ); //xPortGetCoreID()
+
     // when a new task spawns it already has a context allocated, but
     // it is up to the task to set the context id correctly
     mp_context_node_t* context = (mp_context_node_t*)void_context;
-    context->id = mp_current_tID;
+    context->id = mp_current_tIDs[MICROPY_GET_CORE_INDEX];
     mp_context_switch(context);
     
     volatile uint32_t sp = (uint32_t)get_sp();
@@ -457,7 +478,7 @@ void multipython_task_template( void* void_context ){
             // mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
             mp_task_heap_size = 37000; // todo: temporary trying to reduce heap usage
             // size_t mp_task_heap_size = 10000; // todo: temporary trying to reduce heap usage
-            mp_task_heap = mp_task_alloc( mp_task_heap_size, mp_current_tID ); // todo: allow the task to decide on the GC heap size (user input or something)
+            mp_task_heap = mp_task_alloc( mp_task_heap_size, mp_current_tIDs[MICROPY_GET_CORE_INDEX] ); // todo: allow the task to decide on the GC heap size (user input or something)
             break;
     }
     #else
@@ -465,7 +486,7 @@ void multipython_task_template( void* void_context ){
     // size_t mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
     size_t mp_task_heap_size = 37000; // todo: temporary trying to reduce heap usage
     // size_t mp_task_heap_size = 10000; // todo: temporary trying to reduce heap usage
-    void *mp_task_heap = mp_task_alloc( mp_task_heap_size, mp_current_tID ); // todo: allow the task to decide on the GC heap size (user input or something)
+    void *mp_task_heap = mp_task_alloc( mp_task_heap_size, mp_current_tIDs[MICROPY_GET_CORE_INDEX] ); // todo: allow the task to decide on the GC heap size (user input or something)
     #endif
 
 soft_reset:
@@ -523,7 +544,7 @@ soft_reset:
     }
 
     portENTER_CRITICAL(&mux);
-    mp_task_remove( mp_current_tID );
+    mp_task_remove( mp_current_tIDs[MICROPY_GET_CORE_INDEX] );
     portEXIT_CRITICAL(&mux);
     vTaskDelete(NULL);  // When a task deletes itself make sure to release the mux *before* dying
 }

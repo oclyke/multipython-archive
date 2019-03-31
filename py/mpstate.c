@@ -42,18 +42,18 @@ int8_t mp_task_free_all( uint32_t tID );
 // switch the micropython state to a given node
 void mp_context_switch(mp_context_node_t* node){
     if( node == NULL ){ return; }
-    mp_active_context = node;
-    mp_active_context_mirror = *(mp_active_context);
+    mp_active_contexts[MICROPY_GET_CORE_INDEX] = node;
+    mp_active_context_mirrors[MICROPY_GET_CORE_INDEX] = *(mp_active_contexts[MICROPY_GET_CORE_INDEX]);
     mp_context_refresh();
 }
 
 // refresh mirror variables
 void mp_context_refresh( void ){
-    mp_active_dict_main = MP_STATE_VM(dict_main);
+    mp_active_dict_mains[MICROPY_GET_CORE_INDEX] = MP_STATE_VM(dict_main);
     #if MICROPY_PY_SYS
-    mp_active_loaded_modules_dict = MP_STATE_VM(mp_loaded_modules_dict);
-    memcpy((void*)&mp_active_sys_path_obj, (void*)&MP_STATE_VM(mp_sys_path_obj), sizeof(mp_obj_list_t));
-    memcpy((void*)&mp_active_sys_argv_obj, (void*)&MP_STATE_VM(mp_sys_argv_obj), sizeof(mp_obj_list_t));
+    mp_active_loaded_modules_dicts[MICROPY_GET_CORE_INDEX] = MP_STATE_VM(mp_loaded_modules_dict);
+    memcpy((void*)&(mp_active_sys_path_objs[MICROPY_GET_CORE_INDEX]), (void*)&MP_STATE_VM(mp_sys_path_obj), sizeof(mp_obj_list_t));
+    memcpy((void*)&(mp_active_sys_argv_objs[MICROPY_GET_CORE_INDEX]), (void*)&MP_STATE_VM(mp_sys_argv_obj), sizeof(mp_obj_list_t));
     #endif // MICROPY_PY_SYS
 }
 
@@ -162,7 +162,7 @@ void mp_task_remove( uint32_t tID ){
 
 void mp_task_switched_in( uint32_t tID ){
     // todo: we need to handle when the switched-in task is a thread running underneath one of our contexts. (i.e. in the threadctrl->thread LL)
-    mp_current_tID = tID;
+    mp_current_tIDs[MICROPY_GET_CORE_INDEX] = tID;
     mp_context_node_t* node = mp_context_by_tid( tID );
     if(node == NULL){ return; }
     mp_context_switch(node);
@@ -307,12 +307,18 @@ mp_state_ctx_t _hidden_mp_state_ctx;
 
 mp_context_node_t mp_default_context = {
     .id = 0,
+    .status = 0,
     .state = &_hidden_mp_state_ctx,
+    .args = {   .input_kind = 0,
+                .source = NULL,
+                .addtl = NULL },
+    .threadctrl = NULL,
+    .memhead = NULL,
     .next = NULL,
 };
 
-mp_context_node_t  mp_active_context_mirror;
-mp_context_node_t* mp_active_context;
+mp_context_node_t  mp_active_context_mirrors[MICROPY_NUM_CORES];
+mp_context_node_t* mp_active_contexts[MICROPY_NUM_CORES];
 mp_context_node_t* mp_context_head = &mp_default_context;
-volatile uint32_t mp_current_tID = 0;
+volatile uint32_t mp_current_tIDs[MICROPY_NUM_CORES];
 

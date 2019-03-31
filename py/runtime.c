@@ -51,10 +51,10 @@
 #define DEBUG_OP_printf(...) (void)0
 #endif
 
-mp_obj_dict_t mp_active_dict_main;
+mp_obj_dict_t mp_active_dict_mains[MICROPY_NUM_CORES];
 const mp_obj_module_t mp_module___main__ = {
     .base = { &mp_type_module },
-    .globals = (mp_obj_dict_t*)&mp_active_dict_main,
+    .globals = (mp_obj_dict_t*)&mp_active_dict_mains[0],
 };
 
 void mp_init(void) {
@@ -64,7 +64,8 @@ void mp_init(void) {
     MP_STATE_VM(mp_pending_exception) = MP_OBJ_NULL;
     #if MICROPY_ENABLE_SCHEDULER
     MP_STATE_VM(sched_state) = MP_SCHED_IDLE;
-    MP_STATE_VM(sched_sp) = 0;
+    MP_STATE_VM(sched_idx) = 0;
+    MP_STATE_VM(sched_len) = 0;
     #endif
 
 #if MICROPY_ENABLE_EMERGENCY_EXCEPTION_BUF

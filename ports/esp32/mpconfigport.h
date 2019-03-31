@@ -5,6 +5,10 @@
 #include <alloca.h>
 #include "rom/ets_sys.h"
 
+// multi-core configuration
+#define MICROPY_NUM_CORES                   (2)
+#define MICROPY_GET_CORE_INDEX              (xPortGetCoreID())
+
 // object representation and NLR handling
 #define MICROPY_OBJ_REPR                    (MICROPY_OBJ_REPR_A)
 #define MICROPY_NLR_SETJMP                  (1)
