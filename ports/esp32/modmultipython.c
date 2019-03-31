@@ -145,17 +145,35 @@ STATIC mp_obj_t multipython_start(size_t n_args, const mp_obj_t *args) {
     context->args.input_kind = MP_PARSE_FILE_INPUT;
     context->args.source = source;
 
-    if( n_args == 2 ){
+    if( n_args >1 ){
         if( mp_obj_int_get_truncated( args[1] ) == MP_PARSE_SINGLE_INPUT ){
             context->args.input_kind = MP_PARSE_SINGLE_INPUT;
         }
     }
 
-    xTaskCreate(multipython_task_template, "", MULTIPYTHON_TASK_STACK_LEN, (void*)context, MULTIPYTHON_TASK_PRIORITY+1, NULL);
+    
+    if( n_args > 2 ){
+        uint8_t core = 0;
+        core = mp_obj_int_get_truncated( args[2] );
+        if( core > 1 ){
+            core = 1;
+        }
+        xTaskCreatePinnedToCore( multipython_task_template, "", MULTIPYTHON_TASK_STACK_LEN, (void*)context, MULTIPYTHON_TASK_PRIORITY+1, NULL, core );
+        //             /* Function to implement the task */
+        //                                        /* Name of the task */
+        //                                                       /* Stack size in words */
+        //                                                                              /* Task input parameter */
+        //                                                                                                      /* Priority of the task */
+        //                                                                                                                          /* Task handle. */
+        //                                                                                                                      /* Core where the task should run */
+    }else{
+        xTaskCreate(multipython_task_template, "", MULTIPYTHON_TASK_STACK_LEN, (void*)context, MULTIPYTHON_TASK_PRIORITY+1, NULL); // core determined by FreeRTOS
+    }    
+    
     return mp_const_none;
 }
 // STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_start_obj, 1, 2, multipython_start);
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_start_obj, 1, 2, multipython_start);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_start_obj, 1, 3, multipython_start);
 
 STATIC mp_obj_t multipython_stop(size_t n_args, const mp_obj_t *args) {
     // stop all processes
