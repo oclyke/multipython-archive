@@ -307,7 +307,13 @@ mp_state_ctx_t _hidden_mp_state_ctx;
 
 mp_context_node_t mp_default_context = {
     .id = 0,
+    .status = 0,
     .state = &_hidden_mp_state_ctx,
+    .args = {   .input_kind = 0,
+                .source = NULL,
+                .addtl = NULL },
+    .threadctrl = NULL,
+    .memhead = NULL,
     .next = NULL,
 };
 

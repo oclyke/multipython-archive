@@ -45,3 +45,6 @@ genrst/
 
 #MacOS
 *.DS_Store
+
+# VSCode
+.vscode/*
