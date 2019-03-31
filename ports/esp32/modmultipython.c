@@ -446,9 +446,6 @@ mp_obj_t execute_from_str(const char *str) {
 }
 
 void multipython_task_template( void* void_context ){
-
-    printf("hello from task. On core %d\n", xPortGetCoreID() ); //xPortGetCoreID()
-
     // when a new task spawns it already has a context allocated, but
     // it is up to the task to set the context id correctly
     mp_context_node_t* context = (mp_context_node_t*)void_context;
