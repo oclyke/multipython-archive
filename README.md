@@ -16,6 +16,10 @@ This [issue](https://github.com/micropython/micropython/issues/253) shows how to
 #### Semaphores Deprecated on Unix for Mac?
 [Check out this pull request](https://github.com/micropython/micropython/pull/4465)
 
+#### Merging From an Upstream Repo
+So, you want to [merge changes from upstream into your lowly fork?](https://help.github.com/en/articles/merging-an-upstream-repository-into-your-fork) 
+
+
 The MicroPython project
 =======================
 <p align="center">
