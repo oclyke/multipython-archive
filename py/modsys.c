@@ -154,8 +154,8 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_sys_getsizeof_obj, mp_sys_getsizeof);
 STATIC const mp_rom_map_elem_t mp_module_sys_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_sys) },
 
-    { MP_ROM_QSTR(MP_QSTR_path), MP_ROM_PTR(&mp_active_sys_path_objs[0]) },
-    { MP_ROM_QSTR(MP_QSTR_argv), MP_ROM_PTR(&mp_active_sys_argv_objs[0]) },
+    { MP_ROM_QSTR(MP_QSTR_path), MP_ROM_PTR(&mp_active_sys_path_objs[MICROPY_REPL_CORE]) },
+    { MP_ROM_QSTR(MP_QSTR_argv), MP_ROM_PTR(&mp_active_sys_argv_objs[MICROPY_REPL_CORE]) },
     { MP_ROM_QSTR(MP_QSTR_version), MP_ROM_PTR(&version_obj) },
     { MP_ROM_QSTR(MP_QSTR_version_info), MP_ROM_PTR(&mp_sys_version_info_obj) },
     { MP_ROM_QSTR(MP_QSTR_implementation), MP_ROM_PTR(&mp_sys_implementation_obj) },
@@ -192,7 +192,7 @@ STATIC const mp_rom_map_elem_t mp_module_sys_globals_table[] = {
     #endif
 
     #if MICROPY_PY_SYS_MODULES
-    { MP_ROM_QSTR(MP_QSTR_modules), MP_ROM_PTR(&mp_active_loaded_modules_dicts[0]) },
+    { MP_ROM_QSTR(MP_QSTR_modules), MP_ROM_PTR(&mp_active_loaded_modules_dicts[MICROPY_REPL_CORE]) },
     #endif
     #if MICROPY_PY_SYS_EXC_INFO
     { MP_ROM_QSTR(MP_QSTR_exc_info), MP_ROM_PTR(&mp_sys_exc_info_obj) },

@@ -54,7 +54,7 @@
 mp_obj_dict_t mp_active_dict_mains[MICROPY_NUM_CORES];
 const mp_obj_module_t mp_module___main__ = {
     .base = { &mp_type_module },
-    .globals = (mp_obj_dict_t*)&mp_active_dict_mains[0],
+    .globals = (mp_obj_dict_t*)&mp_active_dict_mains[MICROPY_REPL_CORE],
 };
 
 void mp_init(void) {

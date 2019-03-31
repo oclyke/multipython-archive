@@ -8,6 +8,7 @@
 // multi-core configuration
 #define MICROPY_NUM_CORES                   (2)
 #define MICROPY_GET_CORE_INDEX              (xPortGetCoreID())
+#define MICROPY_REPL_CORE                   (1)
 
 // object representation and NLR handling
 #define MICROPY_OBJ_REPR                    (MICROPY_OBJ_REPR_A)

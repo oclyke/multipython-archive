@@ -119,6 +119,10 @@
 #define MICROPY_GET_CORE_INDEX (0)
 #endif
 
+#ifndef MICROPY_REPL_CORE
+#define MICROPY_REPL_CORE (0)
+#endif
+
 /*****************************************************************************/
 /* Memory allocation policy                                                  */
 
