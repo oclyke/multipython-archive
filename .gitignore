@@ -1,3 +1,7 @@
+# Mach1 Specific Code
+*ports/esp32/modules/_mach1_boot.py
+*ports/esp32/makeport.mk
+
 # Compiled Sources
 ###################
 *.o
