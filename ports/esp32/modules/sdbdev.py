@@ -47,4 +47,4 @@ class SDBdev:
 #     # for now we use a fixed size for the filesystem
 #     bdev = FlashBdev(2048 * 1024 // FlashBdev.SEC_SIZE)
 
-sdbdev = SDBdev()
+sdbdevice = SDBdev()

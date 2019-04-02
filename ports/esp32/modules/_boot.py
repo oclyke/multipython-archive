@@ -9,4 +9,14 @@ except OSError:
     import inisetup
     vfs = inisetup.setup()
 
+
+
+from sdbdev import sdbdevice
+
+try:
+    if sdbdevice:
+        uos.mount(sdbdevice, '/sdcard')
+except OSError:
+    print('No SD Block Device')
+
 gc.collect()
