@@ -503,7 +503,7 @@ soft_reset:
     // machine_pins_init();
 
     // run boot-up scripts
-    pyexec_frozen_module("_mach1_boot.py"); // normally _boot.py for esp32 port
+    pyexec_frozen_module("_boot.py");
     // pyexec_file("boot.py");
     // if (pyexec_mode_kind == PYEXEC_MODE_FRIENDLY_REPL) {
     //     pyexec_file("main.py");
