@@ -199,7 +199,7 @@ STATIC mp_obj_t multipython_stop(size_t n_args, const mp_obj_t *args) {
                 mp_obj_t* items;
                 mp_obj_list_get(args[0], &size, &items );
                 for( size_t indi = 0; indi < size; indi++ ){
-                    if( !mp_obj_is_type(items[indi], &mp_type_int) ){
+                    if( !mp_obj_is_int(items[indi]) ){
                         mp_raise_TypeError("list element of non-integer type");
                         return mp_const_none;
                     }
@@ -257,7 +257,7 @@ STATIC mp_obj_t multipython_suspend(size_t n_args, const mp_obj_t *args) {
                 mp_obj_t* items;
                 mp_obj_list_get(args[0], &size, &items );
                 for( size_t indi = 0; indi < size; indi++ ){
-                    if( !mp_obj_is_type(items[indi], &mp_type_int) ){
+                    if( !mp_obj_is_int(items[indi]) ){
                         mp_raise_TypeError("list element of non-integer type");
                         return mp_const_none;
                     }
@@ -316,7 +316,7 @@ STATIC mp_obj_t multipython_resume(size_t n_args, const mp_obj_t *args) {
                 mp_obj_t* items;
                 mp_obj_list_get(args[0], &size, &items );
                 for( size_t indi = 0; indi < size; indi++ ){
-                    if( !mp_obj_is_type(items[indi], &mp_type_int) ){
+                    if( !mp_obj_is_int(items[indi]) ){
                         mp_raise_TypeError("list element of non-integer type");
                         return mp_const_none;
                     }
