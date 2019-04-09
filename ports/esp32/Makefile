@@ -197,6 +197,7 @@ SRC_C = \
 	machine_rtc.c \
 	modmultipython.c \
 	modsdmmc.c \
+	modartnet.c \
 	$(SRC_MOD)
 
 EXTMOD_SRC_C = $(addprefix extmod/,\
