@@ -272,6 +272,7 @@ typedef struct _mp_task_args_t {
 }mp_task_args_t;
 
 struct _mp_context_node_t{
+    volatile uint32_t           mux; // hypothetical mutex? to guarantee that only one process can change the state at once
     uint32_t                    id;
     int32_t                     status;
     mp_state_ctx_t*             state;
@@ -294,6 +295,9 @@ extern mp_context_node_t*   mp_context_head;
 extern mp_context_node_t*   mp_active_contexts[MICROPY_NUM_CORES];
 extern mp_context_node_t    mp_active_context_mirrors[MICROPY_NUM_CORES];
 extern volatile uint32_t    mp_current_tIDs[MICROPY_NUM_CORES];
+
+int8_t mp_context_take(mp_context_node_t* node);
+int8_t mp_context_give(mp_context_node_t* node);
 
 void mp_context_refresh( void );
 void mp_context_switch(mp_context_node_t* node);

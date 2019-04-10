@@ -274,6 +274,8 @@ static void artnet_server_task(void *pvParameters)
                     inet6_ntoa_r(sourceAddr.sin6_addr, addr_str, sizeof(addr_str) - 1);
                 }
 
+                printf("got a packet :)\n");
+
                 // Call callbacks!
                 artnet_callback_foreach( artnet_callbacks_head, artnet_call_callback_helper, NULL );
 
@@ -462,8 +464,11 @@ void artnet_call_callback_helper( artnet_callback_node_iter_t iter, void* args )
         if( node->p_context ){
         // if( mp_obj_is_type( node->p_callback, &mp_type_fun_builtin_0) ){
             printf("calling!!\n");
+            while( mp_context_take( mp_context_head ) ){}
             mp_context_switch(node->p_context);
+            printf("actually got the mutex...\n");
             mp_obj_t res = mp_call_function_0(node->p_callback);
+            mp_context_give(node->p_context);
         // }
         }
     }

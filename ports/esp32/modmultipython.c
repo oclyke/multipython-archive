@@ -51,6 +51,7 @@ STATIC mp_obj_t multipython_get_context_dict( mp_context_node_t* context, mp_int
 
     const char* str_key_pos = "pos";
     const char* str_key_tID = "tID";
+    const char* str_key_mux = "mux owner";
     const char* str_key_state = "state";
     const char* str_key_mem = "mem";
     const char* str_key_thread = "thread";
@@ -59,6 +60,7 @@ STATIC mp_obj_t multipython_get_context_dict( mp_context_node_t* context, mp_int
 
     mp_obj_t key_pos = mp_obj_new_str_via_qstr(str_key_pos, strlen(str_key_pos));
     mp_obj_t key_tID = mp_obj_new_str_via_qstr(str_key_tID, strlen(str_key_tID));
+    mp_obj_t key_mux = mp_obj_new_str_via_qstr(str_key_mux, strlen(str_key_mux));
     mp_obj_t key_state = mp_obj_new_str_via_qstr(str_key_state, strlen(str_key_state));
     mp_obj_t key_mem = mp_obj_new_str_via_qstr(str_key_mem, strlen(str_key_mem));
     mp_obj_t key_thread = mp_obj_new_str_via_qstr(str_key_thread, strlen(str_key_thread));
@@ -69,6 +71,7 @@ STATIC mp_obj_t multipython_get_context_dict( mp_context_node_t* context, mp_int
     if(position < 0){ pos = mp_const_none; }
     else{ pos = mp_obj_new_int(position); }
     mp_obj_t tID = mp_obj_new_int((mp_int_t)context->id);
+    mp_obj_t mux = mp_obj_new_int((mp_int_t)context->mux);
     mp_obj_t state = mp_obj_new_int((mp_int_t)context->state);
     mp_obj_t mem = mp_obj_new_int((mp_int_t)context->memhead);
     mp_obj_t thread = mp_obj_new_int((mp_int_t)context->threadctrl);
@@ -77,6 +80,7 @@ STATIC mp_obj_t multipython_get_context_dict( mp_context_node_t* context, mp_int
 
     mp_obj_dict_store( context_dict,    key_pos,       pos      );
     mp_obj_dict_store( context_dict,    key_tID,       tID      );
+    mp_obj_dict_store( context_dict,    key_mux,       mux      );
     mp_obj_dict_store( context_dict,    key_state,     state    );
     mp_obj_dict_store( context_dict,    key_mem,       mem      );
     mp_obj_dict_store( context_dict,    key_thread,    thread   );
@@ -450,6 +454,7 @@ void multipython_task_template( void* void_context ){
     // it is up to the task to set the context id correctly
     mp_context_node_t* context = (mp_context_node_t*)void_context;
     context->id = mp_current_tIDs[MICROPY_GET_CORE_INDEX];
+    while( mp_context_take(context) ){}; // wait to take the process
     mp_context_switch(context);
     
     volatile uint32_t sp = (uint32_t)get_sp();

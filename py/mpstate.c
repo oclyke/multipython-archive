@@ -27,9 +27,12 @@
 #include "py/mpstate.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define MP_STATE_MALLOC(size) (malloc(size))
 #define MP_STATE_FREE(ptr) (free(ptr))
+
+#define MP_CONTEXT_MUX_INIT 0x00
 
 #if MICROPY_DYNAMIC_COMPILER
 mp_dynamic_compiler_t mp_dynamic_compiler = {0};
@@ -38,6 +41,22 @@ mp_dynamic_compiler_t mp_dynamic_compiler = {0};
 // Forward declarartions (private)
 int8_t mp_task_free_all( uint32_t tID );
 
+
+int8_t mp_context_take(mp_context_node_t* node){
+    uint32_t set = mp_current_tIDs[MICROPY_GET_CORE_INDEX];
+    uint32_t compare = MP_CONTEXT_MUX_INIT;
+    MICROPY_COMPARE_SET(&node->mux, compare, &set);
+    if( set == compare ){ return 0; } // mux take sucessful
+    return -1; // mux already taken
+}
+
+int8_t mp_context_give(mp_context_node_t* node){
+    uint32_t set = MP_CONTEXT_MUX_INIT;
+    uint32_t compare = mp_current_tIDs[MICROPY_GET_CORE_INDEX];
+    MICROPY_COMPARE_SET(&node->mux, compare, &set);
+    if( set == compare ){ return 0; } // mux give sucessful - with current task ID this should only succeed when you had ownership
+    return -1; // mux not yet taken
+}
 
 // switch the micropython state to a given node
 void mp_context_switch(mp_context_node_t* node){
@@ -123,6 +142,7 @@ mp_context_node_t* mp_context_append_new( void ){
         return NULL; // no heap
     }
     node->state = state;
+    node->mux = MP_CONTEXT_MUX_INIT;
     mp_context_append( node );
     return node;
 }
@@ -161,11 +181,21 @@ void mp_task_remove( uint32_t tID ){
 }
 
 void mp_task_switched_in( uint32_t tID ){
+    // printf("ts in\n"); // note: these print statements seem to be causing "A stack overflow in task ipc0"
     // todo: we need to handle when the switched-in task is a thread running underneath one of our contexts. (i.e. in the threadctrl->thread LL)
     mp_current_tIDs[MICROPY_GET_CORE_INDEX] = tID;
     mp_context_node_t* node = mp_context_by_tid( tID );
     if(node == NULL){ return; }
+    while( mp_context_take(node) ){ printf("taking\n"); } // wait to take the process
     mp_context_switch(node);
+}
+
+void mp_task_switched_out( uint32_t tID ){
+    // printf("ts out\n"); // note: these print statements seem to be causing "A stack overflow in task ipc0"
+    // todo: we need to handle when the switched-out task is a thread running underneath one of our contexts. (i.e. in the threadctrl->thread LL)
+    mp_context_node_t* node = mp_context_by_tid( tID );
+    if(node == NULL){ return; }
+    while( mp_context_give(node) ){ printf("giving\n"); } // this should be the counterpart to the 'take' that occurs for mp_task_switched_in
 }
 
 

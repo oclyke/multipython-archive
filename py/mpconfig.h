@@ -111,6 +111,15 @@
 
 /*****************************************************************************/
 /* Multi-core configuration                                                  */
+
+#ifndef MICROPY_COMPARE_SET // this macro requires single-core operations, and for now doesn't disable interrupts, but it should in the future
+#undef  MICROPY_NUM_CORES
+#undef  MICROPY_GET_CORE_INDEX
+#define MICROPY_COMPARE_SET(p_addr, compare, p_set) do{ \
+  if((*p_addr) == compare){ *p_addr = *p_set; *p_set = compare; } \
+  else{ *p_set = *p_addr; }}while(0)
+#endif
+
 #ifndef MICROPY_NUM_CORES
 #define MICROPY_NUM_CORES (1)
 #endif

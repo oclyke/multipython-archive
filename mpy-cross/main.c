@@ -293,6 +293,7 @@ MP_NOINLINE int main_(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
+    while( mp_context_take( mp_context_head ) ){}
     mp_context_switch(mp_context_head);
     mp_stack_ctrl_init();
     return main_(argc, argv);
