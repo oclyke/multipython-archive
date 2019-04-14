@@ -51,7 +51,7 @@ mach1stat = sw_apa102( 5, 33 )
 
 
 
-# import time
+import time
 def rainbow_svnt(S,V,n,t):
 	while(1):
 		for step in range(n):
