@@ -82,7 +82,7 @@ typedef struct _artnet_packet_t{
 }artnet_packet_t;
 
 
-extern volatile artnet_packet_t packet;
+extern volatile artnet_packet_t artnet_packet;
 
 mp_obj_t artnet_start( mp_obj_t interface );
 mp_obj_t artnet_stop( void );
@@ -90,6 +90,9 @@ mp_obj_t artnet_stop( void );
 // callback linked list
 artnet_callback_node_t* artnet_append_callback_node( void );
 int artnet_remove_callback_node( artnet_callback_node_t* node );
+
+int8_t artnet_add_callback_c_args( artnet_callback_args_t cb, void* args );
+int8_t artnet_add_callback_c( artnet_callback_t cb );
 
 
 

@@ -70,7 +70,7 @@ The artnet module is designed to facilitate processing of ArtNet packets
 #define ARTNET_CALLBACK_PTR_FROM_ITER(iter) ((artnet_callback_node_t*)iter)
 
 
-volatile artnet_packet_t    packet; // todo: make sure this is in RAM?
+volatile artnet_packet_t    artnet_packet; // todo: make sure this is in RAM?
 artnet_callback_node_t*     artnet_callbacks_head;
 xTaskHandle                 artnet_task_handle;
 static int                  artnet_initialized = 0;
@@ -90,6 +90,27 @@ static void artnet_server_task(void *pvParameters);
 
 
 void artnet_debug_callback_helper( artnet_callback_node_iter_t iter, void* args );
+
+
+
+
+int8_t artnet_add_callback_c_args( artnet_callback_args_t cb, void* args ){
+    if( cb == NULL ){ return -1; }
+    printf("Here??\n" ); 
+    artnet_callback_node_t* node = artnet_append_callback_node();
+    if( node == NULL ){ return -1; }
+    printf("Adding callback 0x%08X\n", (uint32_t)cb ); 
+    node->c_callback = cb;
+    node->args = args;
+
+// int artnet_remove_callback_node( artnet_callback_node_t* node );
+    return 0;
+}
+
+int8_t artnet_add_callback_c( artnet_callback_t cb ){
+    return artnet_add_callback_c_args( (artnet_callback_args_t)cb, NULL ); // todo: is this kind of thing legal??? calling conventions?
+}
+
 
 
 // interface 
@@ -258,7 +279,7 @@ static void artnet_server_task(void *pvParameters)
             // ESP_LOGI(TAG, "Waiting for data");
             struct sockaddr_in6 sourceAddr; // Large enough for both IPv4 or IPv6
             socklen_t socklen = sizeof(sourceAddr);
-            int len = recvfrom(sock, (void*)&packet, sizeof(packet), 0, (struct sockaddr *)&sourceAddr, &socklen);
+            int len = recvfrom(sock, (void*)&artnet_packet, sizeof(artnet_packet), 0, (struct sockaddr *)&sourceAddr, &socklen);
 
             // Error occured during receiving
             if (len < 0) {
@@ -458,14 +479,15 @@ void artnet_call_callback_helper( artnet_callback_node_iter_t iter, void* args )
     if( node->c_callback ){
         // Call the c callback
         node->c_callback( node->args );
-    }else if( node->p_callback ){
-        if( node->p_context ){
-        // if( mp_obj_is_type( node->p_callback, &mp_type_fun_builtin_0) ){
-            printf("calling!!\n");
-            mp_context_switch(node->p_context);
-            mp_obj_t res = mp_call_function_0(node->p_callback);
+    }else if( node->p_callback ){ // for now we're skipping python callbacks
+        // if( node->p_context ){
+        // // if( mp_obj_is_type( node->p_callback, &mp_type_fun_builtin_0) ){
+        //     printf("calling!!\n");
+        //     mp_context_switch(node->p_context);
+        //     // mp_obj_t res = mp_call_function_0(node->p_callback);
+        //     mp_call_function_0(node->p_callback);
+        // // }
         // }
-        }
     }
 
     // Note: todo: maybe necessary to switch into the MultiPython context from which the callback was added
