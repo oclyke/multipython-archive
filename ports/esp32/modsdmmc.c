@@ -15,6 +15,8 @@
 #define PIN_NUM_CLK  14
 #define PIN_NUM_CS   26
 
+#define SDMMC_DMA_CHAN 1
+
 typedef struct _sdmmc_storage_device_t {
     sdmmc_card_t                        card;       
     sdmmc_host_t                        host;       // flags contain spi vs mmc info
@@ -117,7 +119,7 @@ STATIC mp_obj_t sdmmc_init( void ) {
     slot.gpio_mosi      = PIN_NUM_MOSI;
     slot.gpio_sck       = PIN_NUM_CLK;
     slot.gpio_cs        = PIN_NUM_CS;
-    slot.dma_channel    = 1;
+    slot.dma_channel    = SDMMC_DMA_CHAN;
 
     err = sdmmc_init_device( dev, &sdspi_default_host_config, (void*)&slot );
     if( err != ESP_OK ){
