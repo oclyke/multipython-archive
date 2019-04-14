@@ -206,7 +206,7 @@ STATIC mp_obj_t multipython_stop(size_t n_args, const mp_obj_t *args) {
                 }
                 for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
                     for( size_t indi = 0; indi < size; indi++ ){
-                        if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(items[0]) ){
+                        if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(items[indi]) ){
                             multipython_end_task( (uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id );
                             mp_obj_list_append(stopped_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
                         }
@@ -264,7 +264,7 @@ STATIC mp_obj_t multipython_suspend(size_t n_args, const mp_obj_t *args) {
                 }
                 for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
                     for( size_t indi = 0; indi < size; indi++ ){
-                        if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(items[0]) ){
+                        if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(items[indi]) ){
                             multipython_suspend_task( (uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id );
                             mp_obj_list_append(suspended_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
                         }
@@ -323,7 +323,7 @@ STATIC mp_obj_t multipython_resume(size_t n_args, const mp_obj_t *args) {
                 }
                 for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
                     for( size_t indi = 0; indi < size; indi++ ){
-                        if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(items[0]) ){
+                        if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(items[indi]) ){
                             if( multipython_resume_task( (uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id ) ){
                                 mp_obj_list_append(resumed_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
                             }
@@ -382,7 +382,7 @@ STATIC mp_obj_t multipython_get(size_t n_args, const mp_obj_t *args) {
                 }
                 for(iter = mp_context_iter_first(mp_context_head); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
                     for( size_t indi = 0; indi < size; indi++ ){
-                        if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(items[0]) ){
+                        if( MP_CONTEXT_PTR_FROM_ITER(iter)->id == mp_obj_int_get_truncated(items[indi]) ){
                             mp_obj_list_append(context_list, multipython_get_context_dict( MP_CONTEXT_PTR_FROM_ITER(iter), num_entries++ ));
                         }
                     }
