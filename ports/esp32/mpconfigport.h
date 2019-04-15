@@ -186,6 +186,7 @@ extern const struct _mp_obj_module_t mp_module_onewire;
 extern const struct _mp_obj_module_t mp_module_multipython;
 extern const struct _mp_obj_module_t mp_module_sdmmc;
 extern const struct _mp_obj_module_t mp_module_artnet;
+extern const struct _mp_obj_module_t mp_module_addressable;
 
 #define MICROPY_PORT_BUILTIN_MODULES \
     { MP_OBJ_NEW_QSTR(MP_QSTR_esp), (mp_obj_t)&esp_module }, \
@@ -200,6 +201,7 @@ extern const struct _mp_obj_module_t mp_module_artnet;
     { MP_OBJ_NEW_QSTR(MP_QSTR_multipython), (mp_obj_t)&mp_module_multipython }, \
     { MP_OBJ_NEW_QSTR(MP_QSTR_sdmmc), (mp_obj_t)&mp_module_sdmmc }, \
     { MP_OBJ_NEW_QSTR(MP_QSTR_artnet), (mp_obj_t)&mp_module_artnet }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_addressable), (mp_obj_t)&mp_module_addressable }, \
 
 #define MICROPY_PORT_BUILTIN_MODULE_WEAK_LINKS \
     { MP_OBJ_NEW_QSTR(MP_QSTR_binascii), (mp_obj_t)&mp_module_ubinascii }, \
