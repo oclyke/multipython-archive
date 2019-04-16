@@ -150,7 +150,7 @@ STATIC void addressable_fixture_print( const mp_print_t *print, mp_obj_t self_in
     printf ("Fixture class object with #leds = %d\n", self->info.leds);
 }
 
-STATIC mp_obj_t addressable_fixture_set(mp_obj_t self_in, mp_obj_t index_obj, mp_obj_t colors) {
+STATIC mp_obj_t addressable_fixture_set(mp_obj_t self_in, mp_obj_t start_index_obj, mp_obj_t colors) {
     addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
     if( self->info.protocol >= MODADD_PROTOCOLS_NUM ){
@@ -158,9 +158,12 @@ STATIC mp_obj_t addressable_fixture_set(mp_obj_t self_in, mp_obj_t index_obj, mp
         return mp_const_none;
     }
 
-    mp_int_t index;
-    mp_obj_get_int_maybe( index_obj, &index );
-    if( index >= self->info.leds ){ 
+    mp_int_t start_index;
+    mp_obj_get_int_maybe( start_index_obj, &start_index );
+
+    // printf("index = %d\n", index);
+
+    if( start_index >= self->info.leds ){ 
         mp_raise_ValueError("Index exceeds fixture LEDs\n"); 
         return mp_const_none;
     }
@@ -170,27 +173,44 @@ STATIC mp_obj_t addressable_fixture_set(mp_obj_t self_in, mp_obj_t index_obj, mp
         mp_obj_t* colors_items;
         mp_obj_list_get(colors, &colors_len, &colors_items);
 
+        // printf("the number of colors supplied is: %d\n", colors_len);
+        // printf("the address of the first color is: 0x%X\n", (uint32_t)colors_items);
+
+        const modadd_protocol_t* protocol = modadd_protocols[self->info.protocol];
+        uint8_t     bpl = protocol->bpl;
+        uint8_t*    base = self->info.data;
+
+        // printf("base address for this fixture = 0x%X\n", (uint32_t)base );
+
         for(size_t color_ind = 0; color_ind < colors_len; color_ind++){
-            if( mp_obj_is_type( colors, &mp_type_list) ){
+            if( mp_obj_is_type( colors_items[color_ind], &mp_type_list) ){
                 size_t color_len;
-                mp_obj_t* color_items;
-                mp_obj_list_get(colors, &color_len, &color_items);
+                mp_obj_t* color_components;
+                mp_obj_list_get(colors_items[color_ind], &color_len, &color_components);
 
-                const modadd_protocol_t* protocol = modadd_protocols[self->info.protocol];
+                
 
-                uint8_t     bpl = protocol->bpl;
-                uint8_t*    base = self->info.data;
+                uint32_t index = color_ind + start_index;
+                if( index >= (self->info.leds) ){ break; } // don't write into other fixture's memory!
+
                 if( ( base == NULL ) ){ mp_raise_ValueError("There is no memory for this fixture - try adding the fixture to an output string\n"); }
                 if( color_len < bpl ){
                     mp_raise_ValueError("Too few color elements for this protocol\n");
                     return mp_const_none;
                 }
-                for( uint8_t led_ind = 0; led_ind < bpl; led_ind++ ){
+
+                for( uint8_t component_ind = 0; component_ind < bpl; component_ind++ ){
                     mp_int_t val;
-                    mp_obj_get_int_maybe( (color_items[protocol->indices[led_ind]]), &val );
-                    *(base + (color_ind*bpl) + led_ind) = (uint8_t)val;
-                    *(base + (color_ind*bpl) + led_ind) |= protocol->or_mask[led_ind];
+                    mp_obj_get_int_maybe( (color_components[protocol->indices[component_ind]]), &val );
+
+                    uint8_t* location = base + ((index)*bpl) + component_ind;
+
+                    *(location) = (uint8_t)val;                         // set value
+                    *(location) |= protocol->or_mask[component_ind];    // set mask
+
+                    // printf("component_ind = %d, final value = %d, location = 0x%X\n", component_ind, (uint8_t)(*location), (uint32_t)location );
                 }
+                // printf("\n");
 
             }else{
                 mp_raise_TypeError("Elements of 'colors' should be lists of integers\n");

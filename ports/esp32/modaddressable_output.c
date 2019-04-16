@@ -171,19 +171,21 @@ IRAM_ATTR void mach1_output_apa102_hw(void* arg){
     //     printf("error waiting for transfer to finish\n");
     // }
 
+
+
     memset(&(spi_port->transfer), 0, sizeof(spi_transaction_t));
     spi_port->transfer.length = 8*(ctrl->fixture_ctrl.data_len);
     spi_port->transfer.tx_buffer = (void*)ctrl->fixture_ctrl.data;
 
-    printf("data length (bits): %d\n", spi_port->transfer.length);
-    printf("transfer buffer 0x%X", (uint32_t)spi_port->transfer.tx_buffer );
+    // printf("data length (bits): %d\n", spi_port->transfer.length);
+    // printf("transfer buffer 0x%X", (uint32_t)spi_port->transfer.tx_buffer );
 
 
 
-    while(1){
-        printf("halting, just for fun\n");
-        vTaskDelay(10000/portTICK_PERIOD_MS);
-    }
+    // while(1){
+    //     printf("halting, just for fun\n");
+    //     vTaskDelay(10000/portTICK_PERIOD_MS);
+    // }
 
     // printf("starting a transmission with %d bits from address 0x%X\n", spi_port->transfer.length, (uint32_t)spi_port->transfer.tx_buffer);
 

@@ -405,11 +405,23 @@ void modadd_ctrl_recompute_fixtures( modadd_ctrl_t* ctrl ){
     }
 
     printf("Output chain memory beginning at 0x%X\n", (uint32_t)ctrl->fixture_ctrl.data );
+    // Now update the fixture control structure as needed
+    ctrl->fixture_ctrl.data_len = length_required;
+    memset((void*)ctrl->fixture_ctrl.data, 0x00, length_required); // zero out the new memory
 
-    // Prepare to do the second phase of recomputation - setting fixture data offsets and linking back to the ctrl structure
+    // Prepare to do the second phase of recomputation - setting fixture data offsets and linking back to the ctrl structure    
     recomp.ctrl = ctrl;
     recomp.data = ctrl->fixture_ctrl.data + protocol->num_leading;
-    modadd_fixture_foreach(ctrl->fixture_ctrl.head, modadd_fixture_recomputation, (void*)&recomp);
+    modadd_fixture_foreach(ctrl->fixture_ctrl.head, modadd_fixture_recomputation, (void*)&recomp);    
+
+    // now apply the mask for this protocol to all applicable memory locations (note: this will probably clear all LED data)
+    uint8_t* base = ctrl->fixture_ctrl.data + protocol->num_leading;
+    for(uint32_t led_ind = 0; led_ind < recomp.total_leds; led_ind++){
+        for(uint8_t component_ind = 0; component_ind < protocol->bpl; component_ind++ ){
+            uint8_t* location = base + ((led_ind)*(protocol->bpl)) + component_ind;
+            *(location) |= protocol->or_mask[component_ind];    // set mask
+        }
+    }
 
     printf("Recomputed chain :)\n");
 }
