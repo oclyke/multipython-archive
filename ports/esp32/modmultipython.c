@@ -121,7 +121,7 @@ int8_t multipython_resume_task( uint32_t taskID ){
 
 
 // interface 
-STATIC mp_obj_t multipython_start(size_t n_args, const mp_obj_t *args) {
+STATIC mp_obj_t multipython_start(size_t n_args, const mp_obj_t *args) { // todo: allow to set priority and heap size!
     // start new processes (contexts)
 
     if(n_args == 0){ return mp_const_none; }

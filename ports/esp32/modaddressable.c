@@ -36,13 +36,30 @@ MP_DEFINE_CONST_FUN_OBJ_2(addressable_controller_add_fixture_obj, addressable_co
 STATIC mp_obj_t addressable_controller_recompute_chain(mp_obj_t self_in);
 MP_DEFINE_CONST_FUN_OBJ_1(addressable_controller_recompute_chain_obj, addressable_controller_recompute_chain);
 
+STATIC mp_obj_t addressable_controller_timer(mp_obj_t self_in);
+MP_DEFINE_CONST_FUN_OBJ_1(addressable_controller_timer_obj, addressable_controller_timer);
+
+STATIC mp_obj_t addressable_controller_fixtures(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args);
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(addressable_controller_fixtures_obj, 0, addressable_controller_fixtures);
+
+STATIC mp_obj_t addressable_controller_initialize(mp_obj_t self_in);
+MP_DEFINE_CONST_FUN_OBJ_1(addressable_controller_initialize_obj, addressable_controller_initialize);
+
+STATIC mp_obj_t addressable_controller_start(mp_obj_t self_in);
+MP_DEFINE_CONST_FUN_OBJ_1(addressable_controller_start_obj, addressable_controller_start);
+
 STATIC void addressable_controller_print( const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind );
 mp_obj_t addressable_controller_make_new( const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args );
 
 STATIC const mp_rom_map_elem_t addressable_controller_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_add_fixture), MP_ROM_PTR(&addressable_controller_add_fixture_obj) },
     { MP_ROM_QSTR(MP_QSTR_recompute_chain), MP_ROM_PTR(&addressable_controller_recompute_chain_obj) },
-    
+    { MP_ROM_QSTR(MP_QSTR_timer), MP_ROM_PTR(&addressable_controller_timer_obj) },
+    { MP_ROM_QSTR(MP_QSTR_fixtures), MP_ROM_PTR(&addressable_controller_fixtures_obj) },
+    { MP_ROM_QSTR(MP_QSTR_initialize), MP_ROM_PTR(&addressable_controller_initialize_obj) },
+    { MP_ROM_QSTR(MP_QSTR_start), MP_ROM_PTR(&addressable_controller_start_obj) },
+
+    // { MP_ROM_QSTR(MP_QSTR_recompute_chain), MP_ROM_PTR(&addressable_controller_recompute_chain_obj) },
  };
 STATIC MP_DEFINE_CONST_DICT(addressable_controller_locals_dict, addressable_controller_locals_dict_table);
 
@@ -58,9 +75,10 @@ const mp_obj_type_t addressable_controllerObj_type = {
 
 // this is the actual C-structure for our new object
 typedef struct _addressable_controller_obj_t {
-    mp_obj_base_t     base;         // base represents some basic information, like type
-    const uint8_t     id;           // id, corresponds to index in 'modadd_controllers' and the value of the corresponding modadd_controllers_e
-    modadd_ctrl_t*    info;         // the controller info - points at the actual controller info structure
+    mp_obj_base_t           base;       // base represents some basic information, like type
+    const uint8_t           id;         // id, corresponds to index in 'modadd_controllers' and the value of the corresponding modadd_controllers_e
+    modadd_ctrl_t*          info;       // the controller info - points at the actual controller info structure
+    addressable_timer_obj_t timer;      // the micropython timer object that goes along with the timer object in the 'info' member  
 } addressable_controller_obj_t;
 
 
@@ -132,11 +150,11 @@ STATIC void addressable_controller_print( const mp_print_t *print, mp_obj_t self
     printf ("Addressable controller class object with id = %d, and protocol = %d\n", self->id, self->info->output.protocol);
 }
 
-STATIC mp_obj_t addressable_controller_add_fixture(mp_obj_t self_in, mp_obj_t fixture_obj) {
+STATIC mp_obj_t addressable_controller_add_fixture(mp_obj_t self_in, mp_obj_t fixture_obj) { // todo: convert this function to optionally take a list of fixtures to add!
     addressable_controller_obj_t *self = MP_OBJ_TO_PTR(self_in);
     addressable_fixture_obj_t* fixture = MP_OBJ_TO_PTR(fixture_obj);
 
-    if( self->info->output.protocol != fixture->info.protocol ){
+    if( self->info->output.protocol != fixture->info->protocol ){
         mp_raise_ValueError("Protocol mismatch, cannot add fixture\n");
         return mp_const_none;
     }
@@ -147,7 +165,7 @@ STATIC mp_obj_t addressable_controller_add_fixture(mp_obj_t self_in, mp_obj_t fi
     }
 
     // Append the fixture through the specified append function
-    modadd_status_e status = self->info->fixture_ctrl.append( &(fixture->info), self->info );
+    modadd_status_e status = self->info->fixture_ctrl.append( fixture->info, self->info );
     if( status != MODADD_STAT_OK ){
         printf("Appending failed with code %d\n", status);
         return mp_const_none;
@@ -162,137 +180,159 @@ STATIC mp_obj_t addressable_controller_recompute_chain(mp_obj_t self_in){
     return mp_const_none;
 }
 
+STATIC mp_obj_t addressable_controller_timer(mp_obj_t self_in){
+    addressable_controller_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    mp_obj_t id = mp_obj_new_int_from_uint( self->id );
+    return addressable_timer_make_new( &addressable_timerObj_type, 1, 0, &id );
+}
 
 
+// void (*f)(modadd_fixture_iter_t iter, void*);
+
+STATIC mp_obj_t addressable_controller_fixtures(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
+    enum { ARG_self_in, ARG_index };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_self_in,  MP_ARG_REQUIRED | MP_ARG_OBJ,   {.u_obj = mp_const_none} },
+        { MP_QSTR_index,    MP_ARG_OBJ,                     {.u_obj = mp_const_none} },
+    };
+
+    // parse args
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    if( mp_obj_is_type( args[ARG_self_in].u_obj, &mp_type_NoneType ) ){
+        mp_raise_TypeError("the first argument 'self' must be a controller class object\n");
+    }
+    addressable_controller_obj_t *self = MP_OBJ_TO_PTR(args[ARG_self_in].u_obj);
+
+    mp_obj_t fixtures_list = mp_obj_new_list( 0, NULL );
+    modadd_fixture_iter_t iter = NULL;
+
+    if( !mp_obj_is_type( args[ARG_index].u_obj, &mp_type_NoneType ) ){
+        if( mp_obj_is_int( args[ARG_index].u_obj ) ){
+            uint32_t fixture_index = 0;
+            uint32_t desired_index = mp_obj_int_get_truncated( args[ARG_index].u_obj );
+            for( iter = modadd_fixture_iter_first(MODADD_ITER_FROM_FIXTURE_PTR( self->info->fixture_ctrl.head )); !modadd_fixture_iter_done(iter); iter = modadd_fixture_iter_next(iter) ){
+                if( fixture_index == desired_index ){
+                    modadd_fixture_t* fixture = MODADD_FIXTURE_PTR_FROM_ITER( iter );
+                    mp_obj_t fix = addressable_fixture_make_new( &addressable_fixtureObj_type, 0, 0, NULL );
+                    addressable_fixture_obj_t* p_fix = MP_OBJ_TO_PTR(fix);
+                    p_fix->info = fixture;   // point to the same data
+                    // mp_obj_list_append(fixtures_list, addressable_fixture_get_dict( fix, fixture_index ) );
+                    //mp_obj_list_append(fixtures_list, fix );
+                    return fix;
+                }
+                fixture_index++;
+            }
+            return mp_const_none;
+        }else if( mp_obj_is_type( args[ARG_index].u_obj, &mp_type_list ) ){
+            size_t size;
+            mp_obj_t* items;
+            mp_obj_list_get( args[ARG_index].u_obj, &size, &items );
+
+            for( size_t list_index = 0; list_index < size; list_index++ ){
+
+                mp_obj_t element = items[list_index];
+                if( mp_obj_is_int( element ) ){
+                    uint32_t fixture_index = 0;
+                    uint32_t desired_index = mp_obj_int_get_truncated( element );
+
+                    for( iter = modadd_fixture_iter_first(MODADD_ITER_FROM_FIXTURE_PTR( self->info->fixture_ctrl.head )); !modadd_fixture_iter_done(iter); iter = modadd_fixture_iter_next(iter) ){
+                        if( fixture_index == desired_index ){
+                            modadd_fixture_t* fixture = MODADD_FIXTURE_PTR_FROM_ITER( iter );
+                            mp_obj_t fix = addressable_fixture_make_new( &addressable_fixtureObj_type, 0, 0, NULL );
+                            if( mp_obj_is_type( fix, &addressable_fixtureObj_type ) ){
+                                addressable_fixture_obj_t* p_fix = MP_OBJ_TO_PTR(fix);
+                                p_fix->info = fixture;   // point to the same data
+                                // mp_obj_list_append(fixtures_list, addressable_fixture_get_dict( fix, fixture_index ) );
+                                mp_obj_list_append(fixtures_list, fix );
+                            }
+                        }
+                        fixture_index++;
+                    }
+                }
+            }
+
+        }else{
+            mp_raise_TypeError("index must be an integer or list of integers\n");
+        }
+    }else{
+
+        uint32_t count = 0;
+        for( iter = modadd_fixture_iter_first(MODADD_ITER_FROM_FIXTURE_PTR( self->info->fixture_ctrl.head )); !modadd_fixture_iter_done(iter); iter = modadd_fixture_iter_next(iter) ){
+            modadd_fixture_t* fixture = MODADD_FIXTURE_PTR_FROM_ITER( iter );
+            mp_obj_t fix = addressable_fixture_make_new( &addressable_fixtureObj_type, 0, 0, NULL );
+            addressable_fixture_obj_t* p_fix = MP_OBJ_TO_PTR(fix);
+            p_fix->info = fixture;   // point to the same data
+            // mp_obj_list_append(fixtures_list, addressable_fixture_get_dict( fix, count ) ); // oops! this is what you'd do if you wanted the information about the fixture. but we want the real deal!
+            mp_obj_list_append(fixtures_list, fix );
+            count++;
+        }
+    }
+    
+    return fixtures_list;
+}
 
 
+STATIC mp_obj_t addressable_controller_initialize(mp_obj_t self_in){
+    addressable_controller_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    modadd_ctrl_t* ctrl = self->info;
+    if( ctrl == NULL ){ 
+        mp_raise_ValueError("controller is not linked. cannot start\n");
+        return mp_const_none; 
+    }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// // controller functions
-// modadd_status_e modadd_output_verify_memory( void ){ // todo: fill out stub code (probably needs arguments!!!)
-
-//     return MODADD_STAT_ERR;
-
-//     return MODADD_STAT_OK;
-// }
-
-
-modadd_status_e modadd_control_start( modadd_ctrl_t* ctrl ){
-    if( ctrl == NULL ){ return MODADD_STAT_ERR; }
     modadd_status_e ret = MODADD_STAT_OK;
     ret = modadd_output_initialize( ctrl );
     if( ret != MODADD_STAT_OK ){
-        // todo: de-initialize output
-        return ret;
+        // // todo: de-initialize output
+        // mp_raise_msg( &addressable_controllerObj_type, "error: could not initialize controller's output\n");
+        return mp_const_none;
     }
-    ret = modadd_timer_start( ctrl );
-    if( ret != MODADD_STAT_OK ){
-        // todo: de-initialize output
-        // todo: deinitialize timer
-        return ret;
-    }
-    return MODADD_STAT_OK;
+    return mp_const_none;
 }
 
 
-// interface 
-STATIC mp_obj_t modadd_start( size_t n_args, const mp_obj_t *args ){
-    // start all outputs
-    // optionally, give a list of outputs to start
-
-    mp_obj_t started_outputs = mp_obj_new_list( 0, NULL );
-
-    switch( n_args ){
-        case 1:
-            if(mp_obj_is_int(args[0])){
-                uint8_t output_index = mp_obj_int_get_truncated(args[0]);
-                if( output_index < MODADD_NUM_CONTROLLERS ){
-                    if( modadd_control_start( (modadd_controllers[output_index]) ) != MODADD_STAT_OK ){}
-                    else{ mp_obj_list_append(started_outputs, mp_obj_new_int(output_index) ); }
-                }
-            }else if( mp_obj_is_type(args[0], &mp_type_list) ){
-                size_t size;
-                mp_obj_t* items;
-                mp_obj_list_get(args[0], &size, &items );
-                for( size_t indi = 0; indi < size; indi++ ){
-                    if( !mp_obj_is_int(items[indi]) ){
-                        mp_raise_TypeError("list element of non-integer type");
-                        return mp_const_none;
-                    }
-                }
-                for( size_t indi = 0; indi < size; indi++ ){
-                    uint8_t output_index = mp_obj_int_get_truncated(items[indi]);
-                    if( output_index < MODADD_NUM_CONTROLLERS ){
-                        if( modadd_control_start( (modadd_controllers[output_index]) ) != MODADD_STAT_OK ){}
-                        else{ mp_obj_list_append(started_outputs, mp_obj_new_int(output_index) ); }
-                    }
-                }
-            }else{
-                mp_raise_TypeError("expects integer or list of integers");
-                return mp_const_none;
-            }
-            break;
-
-        case 0:
-        default:
-            // for(iter = mp_context_iter_next(mp_context_iter_first(mp_context_head)); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter)){
-            //     multipython_end_task( (uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id );
-            //     mp_obj_list_append(stopped_contexts, mp_obj_new_int(MP_CONTEXT_PTR_FROM_ITER(iter)->id) );
-            // }
-            break;
+STATIC mp_obj_t addressable_controller_start(mp_obj_t self_in){
+    addressable_controller_initialize( self_in );
+    mp_obj_t timer_obj = addressable_controller_timer( self_in );
+    if( !mp_obj_is_type( timer_obj, &addressable_timerObj_type ) ){
+        mp_raise_msg( &addressable_controllerObj_type, "error: could not initialize controller's output\n");
     }
-
-    return started_outputs;
+    addressable_timer_start( timer_obj );
+    // addressable_controller_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    // modadd_ctrl_t* ctrl = self->info;
+    return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(modadd_start_obj, 0, 1, modadd_start);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 // Module Definitions
 STATIC const mp_rom_map_elem_t mp_module_addressable_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_addressable) },
-    { MP_ROM_QSTR(MP_QSTR_start), MP_ROM_PTR(&modadd_start_obj) },
+    // { MP_ROM_QSTR(MP_QSTR_start), MP_ROM_PTR(&modadd_start_obj) },
 
-    { MP_ROM_QSTR(MP_QSTR_controller), MP_ROM_PTR(&addressable_controllerObj_type) },
-    { MP_ROM_QSTR(MP_QSTR_fixture), MP_ROM_PTR(&addressable_fixtureObj_type) },
+    { MP_ROM_QSTR(MP_QSTR_controller),  MP_ROM_PTR(&addressable_controllerObj_type) },
+    { MP_ROM_QSTR(MP_QSTR_fixture),     MP_ROM_PTR(&addressable_fixtureObj_type) },
 
     { MP_ROM_QSTR(MP_QSTR_STAT_CONTROLLER), MP_ROM_INT(MACH1_CONTROLLER_STAT) },
     { MP_ROM_QSTR(MP_QSTR_ALED_CONTROLLER), MP_ROM_INT(MACH1_CONTROLLER_ALED) },
@@ -384,27 +424,26 @@ void modadd_ctrl_recompute_fixtures( modadd_ctrl_t* ctrl ){
     if( ctrl->fixture_ctrl.data == NULL ){
         // Need to allocate memory regardless
         printf("First memory allocation for this controller.\n");
-        uint8_t* data = (uint8_t*)MODADD_MALLOC_DMA( length_required * sizeof(uint8_t) );
-        if( data == NULL ){
-            printf("allocation failed. Please reduce the number of fixtures on this string and try again\n");
-            return;
-        }
-        ctrl->fixture_ctrl.data = data;
     }else{
         size_t current_allocation = ctrl->fixture_ctrl.data_len;
         if( current_allocation < length_required ){
             printf("Need to increase memory allocation for the controller.\n");
             MODADD_FREE( ctrl->fixture_ctrl.data );
-            uint8_t* data = (uint8_t*)MODADD_MALLOC_DMA( length_required * sizeof(uint8_t) );
-            if( data == NULL ){
-                printf("allocation failed. Please reduce the number of fixtures on this string and try again\n");
-                return;
-            }
-            ctrl->fixture_ctrl.data = data;
         }
     }
+    if( length_required == 0){
+        printf("No memory required.\n");
+        return;
+    }
+    uint8_t* data = (uint8_t*)MODADD_MALLOC_DMA( length_required * sizeof(uint8_t) );
+    if( data == NULL ){
+    printf("allocation failed. Please reduce the number of fixtures on this string and try again\n");
+        return;
+    }
+    ctrl->fixture_ctrl.data = data;
 
-    printf("Output chain memory beginning at 0x%X\n", (uint32_t)ctrl->fixture_ctrl.data );
+    // printf("Output chain memory beginning at 0x%X\n", (uint32_t)ctrl->fixture_ctrl.data );
+
     // Now update the fixture control structure as needed
     ctrl->fixture_ctrl.data_len = length_required;
     memset((void*)ctrl->fixture_ctrl.data, 0x00, length_required); // zero out the new memory
@@ -423,7 +462,7 @@ void modadd_ctrl_recompute_fixtures( modadd_ctrl_t* ctrl ){
         }
     }
 
-    printf("Recomputed chain :)\n");
+    // printf("Recomputed chain :)\n");
 }
 
 

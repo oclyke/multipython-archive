@@ -21,19 +21,24 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#include "modaddressable_timers.h"
+#ifndef _MODADDRESSABLE_TIMER_H_
+#define _MODADDRESSABLE_TIMER_H_
+
+#include "modaddressable.h"
+
+extern const mp_obj_type_t addressable_timerObj_type;
+
+mp_obj_t addressable_timer_make_new( const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args );
+mp_obj_t addressable_timer_start( mp_obj_t self_in );
+mp_obj_t addressable_timer_stop( mp_obj_t self_in );
+
+// this is the actual C-structure for our new object
+typedef struct _addressable_timer_obj_t {
+    mp_obj_base_t           base;           // base represents some basic information, like type
+    modadd_output_timer_t*  info;           // pointer to the underlying esp timer
+} addressable_timer_obj_t;
+
+// modadd_status_e modadd_timer_start( modadd_ctrl_t* ctrl );
 
 
-modadd_status_e modadd_timer_start( modadd_ctrl_t* ctrl ){
-    if( ctrl == NULL ){ return MODADD_STAT_ERR; }
-    modadd_output_timer_t* timer = &(ctrl->timer);
-
-    esp_timer_create_args_t timer_args;
-    timer_args.callback = timer->callback;
-    timer_args.arg = ctrl; // provide the control structure in the callback
-
-    ESP_ERROR_CHECK(esp_timer_create(&timer_args, &(timer->timer_handle)));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(timer->timer_handle, timer->period));
-
-    return MODADD_STAT_OK;
-}
+#endif // _MODADDRESSABLE_TIMER_H_

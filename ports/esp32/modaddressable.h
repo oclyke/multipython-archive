@@ -50,10 +50,12 @@ and output will only be allocated:
 
 #include "modaddressable_types.h"
 #include "modaddressable_protocols.h"
-#include "modaddressable_timers.h"
+#include "modaddressable_timer.h"
 #include "modaddressable_fixture.h"
 #include "modaddressable_output.h"
 #include "modaddressable_controllers.h"
+
+#include "modartnet.h"
 
 #define MODADD_MALLOC(size) malloc(size)
 #define MODADD_MALLOC_DMA(size) heap_caps_malloc( size, MALLOC_CAP_DMA );

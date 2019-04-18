@@ -138,7 +138,8 @@ typedef struct _modadd_output_timer_t{
     uint64_t                    period;
     esp_timer_handle_t          timer_handle;
     modadd_timer_status_mask_e  status; // bitmask
-    timer_callback_t            callback;
+    esp_timer_create_args_t     create_args;
+    // timer_callback_t            callback; // now handled within 
     // void*                       callback_args; // callback args now standardized to the output structure pointer
 }modadd_output_timer_t;
 
@@ -155,6 +156,7 @@ typedef struct _modadd_port_spi_t{
     uint32_t                freq;
     spi_callback_t          post_xfer;
     spi_callback_t          pre_xfer;
+    bool                    is_initialized;
 }modadd_port_spi_t;
 
 typedef struct _modadd_port_sw_t{

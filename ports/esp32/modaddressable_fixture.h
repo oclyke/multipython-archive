@@ -33,12 +33,18 @@ void modadd_ctrl_recompute_fixtures( modadd_ctrl_t* ctrl );
 modadd_status_e modadd_fixture_append( modadd_fixture_t* node, modadd_ctrl_t* ctrl );
 modadd_status_e modadd_fixture_remove( modadd_fixture_t* node, modadd_ctrl_t* ctrl );
 
+modadd_fixture_iter_t modadd_fixture_iter_first( modadd_fixture_iter_t head );
+bool modadd_fixture_iter_done( modadd_fixture_iter_t iter );
+modadd_fixture_iter_t modadd_fixture_iter_next( modadd_fixture_iter_t iter );
 void modadd_fixture_foreach(modadd_fixture_iter_t head, void (*f)(modadd_fixture_iter_t iter, void*), void* args);
+
+mp_obj_t addressable_fixture_get_dict( mp_obj_t fixture_obj, mp_int_t position );
+mp_obj_t addressable_fixture_make_new( const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args );
 
 // this is the actual C-structure for our new object
 typedef struct _addressable_fixture_obj_t {
     mp_obj_base_t base;         // base represents some basic information, like type
-    modadd_fixture_t info;      // the fixture info
+    modadd_fixture_t* info;     // the fixture info
 } addressable_fixture_obj_t;
 
 

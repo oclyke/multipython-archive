@@ -88,7 +88,10 @@ modadd_ctrl_t mach1_stat_ctrl = {
         .period = MACHONE_STAT_TIMER_PERIOD,
         // .timer,
         .status = MODADD_TIMER_STAT_NONE, 
-        .callback = MACH1_STAT_OUTPUT_CALLBACK,
+        .create_args = {
+            .callback = MACH1_STAT_OUTPUT_CALLBACK,   
+        }
+        // .callback = MACH1_STAT_OUTPUT_CALLBACK,
         // .callback_args = NULL,
     },
     .output = {
@@ -153,7 +156,10 @@ modadd_ctrl_t mach1_aled_ctrl = {
         .period = MACH1_ALED_TIMER_PERIOD,
         // .timer,
         .status = MODADD_TIMER_STAT_NONE,
-        .callback = MACH1_ALED_OUTPUT_CALLBACK,
+        .create_args = {
+            .callback = MACH1_ALED_OUTPUT_CALLBACK,   
+        }
+        // .callback = MACH1_ALED_OUTPUT_CALLBACK,
         // .callback_args = NULL,
     },
     .output = {

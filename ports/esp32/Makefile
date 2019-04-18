@@ -200,7 +200,7 @@ SRC_C = \
 	modartnet.c \
 	modaddressable_fixture.c \
 	modaddressable_protocols.c \
-	modaddressable_timers.c \
+	modaddressable_timer.c \
 	modaddressable_output.c \
 	modaddressable_controllers.c \
 	modaddressable.c \

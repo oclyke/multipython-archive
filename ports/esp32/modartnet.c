@@ -114,7 +114,7 @@ int8_t artnet_add_callback_c( artnet_callback_t cb ){
 
 
 // interface 
-mp_obj_t artnet_start( mp_obj_t interface ){
+mp_obj_t artnet_start( mp_obj_t interface ){ // todo: add flexibility for specifying network and password for STA interfac
 
     // todo: allow specification of SSID and password
 
