@@ -284,6 +284,8 @@ struct _mp_context_node_t{
 #define MP_CNOM             0 // nominal
 #define MP_CSUSP  (0x01 << 0) // suspended
 
+#define MP_STATE_MALLOC(size) (malloc(size))
+#define MP_STATE_FREE(ptr) (free(ptr))
 
 extern mp_obj_dict_t    mp_active_dict_mains[MICROPY_NUM_CORES];
 extern mp_obj_list_t    mp_active_sys_path_objs[MICROPY_NUM_CORES];
@@ -302,6 +304,7 @@ mp_context_node_t* mp_context_append_new( void );
 void mp_context_remove( mp_context_node_t* node );
 mp_context_node_t* mp_context_by_tid( uint32_t tID );
 
+void mp_dynmem_append( mp_context_dynmem_node_t* node, mp_context_node_t* context );
 
 void* mp_context_dynmem_alloc( size_t size, mp_context_node_t* context );
 int8_t mp_context_dynmem_free( void* mem, mp_context_node_t* context );

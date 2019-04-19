@@ -53,6 +53,8 @@
 #include "modnetwork.h"
 #include "mpthreadport.h"
 
+#include "mpstate_spiram.h"
+
 // MicroPython runs as a task under FreeRTOS
 #define MP_TASK_PRIORITY        (ESP_TASK_PRIO_MIN + 1)
 #define MP_TASK_STACK_SIZE      (16 * 1024)
@@ -76,29 +78,42 @@ void mp_task(void *pvParameter) {
     #endif
     uart_init();
 
-    #if CONFIG_SPIRAM_SUPPORT
-    // Try to use the entire external SPIRAM directly for the heap
     size_t mp_task_heap_size;
-    void *mp_task_heap = (void*)0x3f800000;
+    void *mp_task_heap = NULL;
+    #if CONFIG_SPIRAM_SUPPORT
     switch (esp_spiram_get_chip_size()) {
         case ESP_SPIRAM_SIZE_16MBITS:
-            mp_task_heap_size = 2 * 1024 * 1024;
+            // mp_task_heap_size = 2 * 1024 * 1024;
+            mp_task_heap_size = 256 * 1024;
             break;
         case ESP_SPIRAM_SIZE_32MBITS:
         case ESP_SPIRAM_SIZE_64MBITS:
-            mp_task_heap_size = 4 * 1024 * 1024;
+            // mp_task_heap_size = 4 * 1024 * 1024;
+            mp_task_heap_size = 256 * 1024;
             break;
         default:
             // No SPIRAM, fallback to normal allocation
-            mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-            mp_task_heap = malloc(mp_task_heap_size); // todo: make heap size configurable or "extendable"
+            // mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+            // mp_task_heap = malloc(mp_task_heap_size); // todo: make heap size configurable or "extendable"
+            mp_task_heap_size = 64000;
             break;
     }
+    mp_task_heap = mp_task_alloc_heap_caps( mp_task_heap_size, mp_current_tIDs[MICROPY_GET_CORE_INDEX], MALLOC_CAP_SPIRAM ); // todo: make heap size configurable or "extendable"
     #else
     // Allocate the uPy heap using malloc and get the largest available region
-    size_t mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-    void *mp_task_heap = malloc(mp_task_heap_size); // todo: make heap size configurable or "extendable"
+    // size_t mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+    mp_task_heap_size = 64000;
+    mp_task_heap = mp_task_alloc( mp_task_heap_size, mp_current_tIDs[MICROPY_GET_CORE_INDEX] );
     #endif
+    
+    if( mp_task_heap == NULL ){
+        printf("Could not allocate memory for task. aborting\n");
+        while(1){
+            printf("You oughtaa fix this... are you trying to use SPIRAM? have you lowered the mp_task_heap_size value?\n");
+            vTaskDelay(1000 / portTICK_RATE_MS );
+        }
+    }
+
 
 soft_reset:
     // initialise the stack pointer for the main thread

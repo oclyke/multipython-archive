@@ -28,9 +28,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define MP_STATE_MALLOC(size) (malloc(size))
-#define MP_STATE_FREE(ptr) (free(ptr))
-
 #if MICROPY_DYNAMIC_COMPILER
 mp_dynamic_compiler_t mp_dynamic_compiler = {0};
 #endif

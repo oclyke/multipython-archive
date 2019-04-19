@@ -204,6 +204,7 @@ SRC_C = \
 	modaddressable_output.c \
 	modaddressable_controllers.c \
 	modaddressable.c \
+	mpstate_spiram.c \
 	$(SRC_MOD)
 
 EXTMOD_SRC_C = $(addprefix extmod/,\
