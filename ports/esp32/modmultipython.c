@@ -1,4 +1,26 @@
 /*
+Copyright 2019 Owen Lyke
+
+Permission is hereby granted, free of charge, to any person 
+obtaining a copy of this software and associated documentation 
+files (the "Software"), to deal in the Software without restriction, 
+including without limitation the rights to use, copy, modify, merge, 
+publish, distribute, sublicense, and/or sell copies of the Software, 
+and to permit persons to whom the Software is furnished to do so, 
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included 
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF 
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY 
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+/*
 
 The multipython module is designed to allow creation and execution of new MicroPython interpreters
 
@@ -27,6 +49,7 @@ The multipython module is designed to allow creation and execution of new MicroP
 #include "esp_task.h"
 #include "soc/cpu.h"
 
+#include "mpstate_spiram.h" // temporary - want to replace this with a general multipython heap allocator file
 #include "modmachine.h"
 
 #include <string.h>
@@ -458,33 +481,40 @@ void multipython_task_template( void* void_context ){
     #endif
     // uart_init();
 
+    void* mp_task_heap = NULL;
+    size_t mp_task_heap_size = 0;
     #if CONFIG_SPIRAM_SUPPORT
-    // Try to use the entire external SPIRAM directly for the heap
-    size_t mp_task_heap_size;
-    void *mp_task_heap = (void*)0x3f800000;
     switch (esp_spiram_get_chip_size()) {
         case ESP_SPIRAM_SIZE_16MBITS:
-            mp_task_heap_size = 2 * 1024 * 1024;
+            // mp_task_heap_size = 2 * 1024 * 1024;
+            mp_task_heap_size = 1024*200; // temporarily hard-coded at ~1/10th of available SPIRAM. One day will make this customizable, then one day will make it dynamically increasable as needed
             break;
         case ESP_SPIRAM_SIZE_32MBITS:
-        case ESP_SPIRAM_SIZE_64MBITS:
-            mp_task_heap_size = 4 * 1024 * 1024;
+        case ESP_SPIRAM_SIZE_64MBITS:   // 8 MB needs special API to access upper 4MB, so for now cap at 4 MB heap
+            // mp_task_heap_size = 4 * 1024 * 1024;
+            // mp_task_heap_size = 400000;
+            mp_task_heap_size = 1024*200; // ~1/200 of available memory - should allow plenty of tasks! needs to be 4-byte aligned
             break;
         default:
             // // No SPIRAM, fallback to normal allocation
             // mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-            mp_task_heap_size = 37000; // todo: temporary trying to reduce heap usage
+            mp_task_heap_size = 32 * 1024; // todo: temporary trying to reduce heap usage
             // size_t mp_task_heap_size = 10000; // todo: temporary trying to reduce heap usage
-            mp_task_heap = mp_task_alloc( mp_task_heap_size, mp_current_tIDs[MICROPY_GET_CORE_INDEX] ); // todo: allow the task to decide on the GC heap size (user input or something)
+            // mp_task_heap = mp_task_alloc( mp_task_heap_size, mp_current_tIDs[MICROPY_GET_CORE_INDEX] ); // todo: allow the task to decide on the GC heap size (user input or something)
             break;
     }
+    mp_task_heap = mp_task_alloc_heap_caps( mp_task_heap_size, mp_current_tIDs[MICROPY_GET_CORE_INDEX], MALLOC_CAP_SPIRAM );
+    printf("mp_task_heap ptr: 0x%X, size = 0x%X\n", (uint32_t)mp_task_heap, mp_task_heap_size );
     #else
     // // Allocate the uPy heap using mp_task_alloc and get the largest available region
     // size_t mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-    size_t mp_task_heap_size = 37000; // todo: temporary trying to reduce heap usage
-    // size_t mp_task_heap_size = 10000; // todo: temporary trying to reduce heap usage
-    void *mp_task_heap = mp_task_alloc( mp_task_heap_size, mp_current_tIDs[MICROPY_GET_CORE_INDEX] ); // todo: allow the task to decide on the GC heap size (user input or something)
+    mp_task_heap_size = 32 * 1024; // todo: make this not hardcoded
+    mp_task_heap = mp_task_alloc( mp_task_heap_size, mp_current_tIDs[MICROPY_GET_CORE_INDEX] ); // todo: allow the task to decide on the GC heap size (user input or something)
     #endif
+    if( mp_task_heap == NULL ){
+        printf("Could not allocate memory for task. aborting\n");
+        goto remove_task;
+    }
 
 soft_reset:
     // initialise the stack pointer for the main thread
@@ -539,6 +569,8 @@ soft_reset:
             goto soft_reset;
         }
     }
+
+remove_task:
 
     portENTER_CRITICAL(&mux);
     mp_task_remove( mp_current_tIDs[MICROPY_GET_CORE_INDEX] );
