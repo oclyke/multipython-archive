@@ -70,6 +70,7 @@ INC += -I$(TOP)
 INC += -I$(TOP)/lib/mp-readline
 INC += -I$(TOP)/lib/netutils
 INC += -I$(TOP)/lib/timeutils
+INC += -I$(TOP)/ports/esp32/ota
 INC += -I$(BUILD)
 
 INC_ESPCOMP += -I$(ESPCOMP)/bootloader_support/include
@@ -88,6 +89,7 @@ INC_ESPCOMP += -I$(ESPCOMP)/heap/include
 INC_ESPCOMP += -I$(ESPCOMP)/json/include
 INC_ESPCOMP += -I$(ESPCOMP)/json/port/include
 INC_ESPCOMP += -I$(ESPCOMP)/log/include
+INC_ESPCOMP += -I$(ESPCOMP)/micro-ecc/micro-ecc
 INC_ESPCOMP += -I$(ESPCOMP)/newlib/platform_include
 INC_ESPCOMP += -I$(ESPCOMP)/newlib/include
 INC_ESPCOMP += -I$(ESPCOMP)/nvs_flash/include
@@ -206,6 +208,11 @@ SRC_C = \
 	modaddressable.c \
 	modmach1.c \
 	mpstate_spiram.c \
+	ota/https_client.c \
+	ota/iap_https.c \
+	ota/iap.c \
+	ota/wifi_sta.c \
+	ota/wifi_tls.c \
 	$(SRC_MOD)
 
 EXTMOD_SRC_C = $(addprefix extmod/,\
@@ -264,6 +271,23 @@ $(HEADER_BUILD)/qstrdefs.generated.h: $(SDKCONFIG_H)
 
 ################################################################################
 # List of object files from the ESP32 IDF components
+
+ESPIDF_BOOTLOADER_SUPPORT_O = $(addprefix $(ESPCOMP)/bootloader_support/,\
+	src/bootloader_clock.o \
+	src/bootloader_common.o \
+	src/bootloader_flash.o \
+	src/bootloader_random.o \
+	src/bootloader_sha.o \
+	src/bootloader_utility.o \
+	src/efuse.o \
+	src/esp_image_format.o \
+	src/flash_encrypt.o \
+	src/flash_partitions.o \
+	src/flash_qio_mode.o \
+	src/secure_boot_signatures.o \
+	src/secure_boot.o \
+	)
+	# src/bootloader_init.o
 
 ESPIDF_DRIVER_O = $(addprefix $(ESPCOMP)/driver/,\
 	uart.o \
@@ -423,6 +447,10 @@ ESPIDF_JSON_O = $(addprefix $(ESPCOMP)/json/cJSON/,\
 
 ESPIDF_LOG_O = $(addprefix $(ESPCOMP)/log/,\
 	log.o \
+	)
+
+ESPIDF_MICRO_ECC_O = $(addprefix $(ESPCOMP)/micro-ecc/micro-ecc/,\
+	uECC.o \
 	)
 
 ESPIDF_XTENSA_DEBUG_MODULE_O = $(addprefix $(ESPCOMP)/xtensa-debug-module/,\
@@ -663,6 +691,7 @@ ESPIDF_MBEDTLS_O = $(addprefix $(ESPCOMP)/mbedtls/,\
 	port/esp_sha1.o \
 	port/esp_sha256.o \
 	port/esp_sha512.o \
+	port/net_sockets.o \
 	)
 
 $(BUILD)/$(ESPCOMP)/wpa_supplicant/%.o: CFLAGS += -DEMBEDDED_SUPP -DIEEE8021X_EAPOL -DEAP_PEER_METHOD -DEAP_MSCHAPv2 -DEAP_TTLS -DEAP_TLS -DEAP_PEAP -DUSE_WPA2_TASK -DCONFIG_WPS2 -DCONFIG_WPS_PIN -DUSE_WPS_TASK -DESPRESSIF_USE -DESP32_WORKAROUND -D__ets__ -Wno-strict-aliasing
@@ -696,6 +725,7 @@ ESPIDF_WPA_SUPPLICANT_O = $(addprefix $(ESPCOMP)/wpa_supplicant/,\
 	)
 
 OBJ_ESPIDF =
+OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_BOOTLOADER_SUPPORT_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_NEWLIB_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_DRIVER_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_ESP32_O))
@@ -710,6 +740,7 @@ OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_FREERTOS_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_VFS_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_JSON_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_LOG_O))
+OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_MICRO_ECC_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_LWIP_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_MBEDTLS_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_XTENSA_DEBUG_MODULE_O))
@@ -755,6 +786,8 @@ LIB_ESPIDF += lwip
 LIB_ESPIDF += mbedtls
 LIB_ESPIDF += wpa_supplicant
 LIB_ESPIDF += sdmmc
+LIB_ESPIDF += bootloader_support
+LIB_ESPIDF += micro_ecc
 
 BUILD_ESPIDF_LIB = $(BUILD)/esp-idf
 
@@ -796,6 +829,8 @@ $(eval $(call gen_espidf_lib_rule,lwip,$(ESPIDF_LWIP_O)))
 $(eval $(call gen_espidf_lib_rule,mbedtls,$(ESPIDF_MBEDTLS_O)))
 $(eval $(call gen_espidf_lib_rule,wpa_supplicant,$(ESPIDF_WPA_SUPPLICANT_O)))
 $(eval $(call gen_espidf_lib_rule,sdmmc,$(ESPIDF_SDMMC_O)))
+$(eval $(call gen_espidf_lib_rule,bootloader_support,$(ESPIDF_BOOTLOADER_SUPPORT_O)))
+$(eval $(call gen_espidf_lib_rule,micro_ecc,$(ESPIDF_MICRO_ECC_O)))
 
 LIB = $(foreach lib,$(LIB_ESPIDF),$(BUILD_ESPIDF_LIB)/$(lib)/lib$(lib).a)
 
@@ -852,6 +887,10 @@ deploy: $(BUILD)/firmware.bin
 erase:
 	$(ECHO) "Erasing flash"
 	$(Q)$(ESPTOOL) --chip esp32 --port $(PORT) --baud $(BAUD) erase_flash
+
+# erase_otadata:
+# 	$(ECHO) "Erasing ota data"
+# 	$(Q)$(ESPTOOL) --chip esp32 --port $(PORT) --baud $(BAUD) erase_otadata
 
 ################################################################################
 # Declarations to build the application

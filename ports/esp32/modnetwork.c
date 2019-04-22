@@ -51,6 +51,8 @@
 
 #include "modnetwork.h"
 
+#include "wifi_sta.h"
+
 #define MODNETWORK_INCLUDE_CONSTANTS (1)
 
 NORETURN void _esp_exceptions(esp_err_t e) {
@@ -131,7 +133,9 @@ static uint8_t wifi_sta_disconn_reason = 0;
 // This function is called by the system-event task and so runs in a different
 // thread to the main MicroPython task.  It must not raise any Python exceptions.
 static esp_err_t event_handler(void *ctx, system_event_t *event) {
-   switch(event->event_id) {
+    esp_err_t result = ESP_OK;
+
+    switch(event->event_id) {
     case SYSTEM_EVENT_STA_START:
         ESP_LOGI("wifi", "STA_START");
         break;
@@ -140,6 +144,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event) {
         break;
     case SYSTEM_EVENT_STA_GOT_IP:
         ESP_LOGI("network", "GOT_IP");
+        wifi_sta_set_connected(true);
         wifi_sta_connected = true;
         wifi_sta_disconn_reason = 0; // Success so clear error. (in case of new error will be replaced anyway)
         break;
@@ -166,6 +171,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event) {
                 // Let other errors through and try to reconnect.
                 break;
         }
+        wifi_sta_set_connected(false);
         ESP_LOGI("wifi", "STA_DISCONNECTED, reason:%d%s", disconn->reason, message);
 
         wifi_sta_connected = false;
@@ -246,6 +252,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(get_wlan_obj, 0, 1, get_wlan);
 
 STATIC mp_obj_t esp_initialize() {
     static int initialized = 0;
+    init_wifi_sta_event_group();
     if (!initialized) {
         ESP_LOGD("modnetwork", "Initializing TCP/IP");
         tcpip_adapter_init();

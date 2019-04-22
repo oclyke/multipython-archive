@@ -23,7 +23,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef _MODMACH1_H_
 #define _MODMACH1_H_
 
+#include "stdint.h"
 
+typedef struct _mach1_firmware_info_t {
+    uint8_t major;
+    uint8_t minor; 
+    uint8_t patch;
+}mach1_firmware_info_t;
 
 
 
