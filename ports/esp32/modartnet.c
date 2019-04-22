@@ -225,8 +225,8 @@ const mp_obj_module_t mp_module_artnet = {
 
 
 
-#define EXAMPLE_WIFI_SSID "esp_net"// CONFIG_WIFI_SSID              // Now we just need to make this irrespective of the station, so that it can be an access point too
-#define EXAMPLE_WIFI_PASS "artnet88"//CONFIG_WIFI_PASSWORD
+// #define EXAMPLE_WIFI_SSID "esp_net"// CONFIG_WIFI_SSID              // Now we just need to make this irrespective of the station, so that it can be an access point too
+// #define EXAMPLE_WIFI_PASS "artnet88"//CONFIG_WIFI_PASSWORD
 
 #define PORT 6454//CONFIG_EXAMPLE_PORT // ART_NET_PORT 6454
 #define EXAMPLE_MAX_STA_CONN 5// could we do more?
