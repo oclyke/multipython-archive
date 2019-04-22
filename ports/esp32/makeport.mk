@@ -1,9 +1,10 @@
 # PORT = /dev/cu.usbserial-1410
-PORT = /dev/cu.usbserial-1420
+# PORT = /dev/cu.usbserial-1420
 # PORT = /dev/cu.usbserial-00002014B
+PORT = /dev/cu.usbserial-00001014B
 
-SDKCONFIG = boards/sdkconfig
-# SDKCONFIG = boards/sdkconfig.spiram_malloc_caps
+# SDKCONFIG = boards/sdkconfig
+SDKCONFIG = boards/sdkconfig.spiram_malloc_caps
 
 BAUD = 2000000
 FLASH_MODE = dio

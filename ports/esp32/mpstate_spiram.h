@@ -26,6 +26,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "py/mpstate.h"
 
+#include "esp_spiram.h" // temporary - there should not be any port-specific direct references within the core.... (keep it local to the port!)
+
 #include "string.h"
 
 
