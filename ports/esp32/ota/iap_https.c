@@ -463,15 +463,26 @@ void iap_https_error_callback(struct http_request_ *request, http_err_t error, i
 
 
 
-void iap_https_get_server_version( uint8_t* major, uint8_t* minor, uint8_t* patch ){
+void iap_https_get_server_version( uint8_t* major, uint8_t* minor, uint8_t* patch, uint8_t* error ){
     iap_https_server_version_up_to_date = false;
+    *(error) = true;
     TickType_t timeout = (5000/portTICK_PERIOD_MS);
     EventBits_t bits = xEventGroupWaitBits(wifi_sta_get_event_group(), WIFI_STA_EVENT_GROUP_CONNECTED_FLAG, pdFALSE, pdFALSE, timeout);
     if( bits & WIFI_STA_EVENT_GROUP_CONNECTED_FLAG ){
         iap_https_check_for_update();
+
+        if( iap_https_server_version_up_to_date == true ){
+            *(major) = iap_https_server_major;
+            *(minor) = iap_https_server_minor;
+            *(patch) = iap_https_server_patch;
+            *(error) = 0;
+        }else{
+            printf("server version number could not be checked\n");
+        }
     }else{
         printf("timed out waiting for wifi station connection\n");
     }
+    iap_https_server_version_up_to_date = false;
 }
 
 void iap_https_install_server_image( void ){

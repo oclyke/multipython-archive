@@ -280,11 +280,9 @@ STATIC mp_obj_t mach1_firmware(size_t n_args, const mp_obj_t *pos_args, mp_map_t
     if( mp_obj_is_true(args[ARG_check_updates].u_obj) ){
         // printf("error: checking for updates not yet supported\n");
         mach1_firmware_info_t server_version;
-        iap_https_get_server_version( &server_version.major, &server_version.minor, &server_version.patch );
-        if( iap_https_server_version_up_to_date == true ){
-            server_version.major = iap_https_server_major;
-            server_version.minor = iap_https_server_minor;
-            server_version.patch = iap_https_server_patch;
+        uint8_t error = 0;
+        iap_https_get_server_version( &server_version.major, &server_version.minor, &server_version.patch, &error );
+        if( error == 0 ){
             printf("Server version number: %d.%d.%d\n", server_version.major, server_version.minor, server_version.patch );
         }else{
             printf("server version number could not be checked\n");
@@ -294,23 +292,25 @@ STATIC mp_obj_t mach1_firmware(size_t n_args, const mp_obj_t *pos_args, mp_map_t
     if( mp_obj_is_true(args[ARG_install_updates].u_obj) ){
         // printf("error: installing updates not yet supported\n");
         mach1_firmware_info_t server_version;
-        iap_https_get_server_version( &server_version.major, &server_version.minor, &server_version.patch );
-        if( iap_https_server_version_up_to_date == true ){
+        uint8_t error = 0;
+        iap_https_get_server_version( &server_version.major, &server_version.minor, &server_version.patch, &error );
+        if( error == 0 ){
+            printf("Server version number: %d.%d.%d\n", server_version.major, server_version.minor, server_version.patch );
+            printf("Current version number: %d.%d.%d\n", mach1_firmware_verison.major, mach1_firmware_verison.minor, mach1_firmware_verison.patch );
+            
             if( ( server_version.major == mach1_firmware_verison.major ) && 
                 ( server_version.minor == mach1_firmware_verison.minor ) && 
                 ( server_version.patch == mach1_firmware_verison.patch ) ){
                 printf("Firmware version is already up-to-date.\n");
             }else{
-
+                printf("Beginning firmware upgrade - do not turn off or leave WiFi until complete\n");
                 // Do the thing
                 iap_https_install_server_image();
-
             }
         }else{
             printf("Could not confirm firmware version on server.\n");
         }
     }
-
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mach1_firmware_obj, 0, mach1_firmware);

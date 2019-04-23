@@ -96,7 +96,8 @@ STATIC mp_obj_t esp_flash_size(void) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(esp_flash_size_obj, esp_flash_size);
 
 STATIC mp_obj_t esp_flash_user_start(void) {
-    return MP_OBJ_NEW_SMALL_INT(0x200000);
+    // return MP_OBJ_NEW_SMALL_INT(0x200000);
+    return MP_OBJ_NEW_SMALL_INT(0x00); // todo: on larger flash memories use the remaining (non ota-image) flash as user flash
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(esp_flash_user_start_obj, esp_flash_user_start);
 

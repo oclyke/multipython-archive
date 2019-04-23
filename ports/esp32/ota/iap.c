@@ -99,8 +99,6 @@ iap_err_t iap_init()
 iap_err_t iap_begin()
 {
     ESP_LOGD(TAG, "iap_begin");
-
-    printf("here_0\n");
     
     // The module needs to be initialized for this method to work.
     if (!(iap_state.module_state_flags & IAP_STATE_INITIALIZED)) {
@@ -121,8 +119,6 @@ iap_err_t iap_begin()
         ESP_LOGE(TAG, "iap_begin: not enough heap memory to allocate the page buffer!");
         return IAP_ERR_OUT_OF_MEMORY;
     }
-
-    printf("here_1\n");
     
     iap_state.partition_to_program = iap_find_next_boot_partition();
     printf("here_1.1, iap_state.partition = %X\n",(uint32_t)iap_state.partition_to_program);
@@ -135,8 +131,6 @@ iap_err_t iap_begin()
     ESP_LOGD(TAG, "iap_begin: next boot partition is '%s'.", iap_state.partition_to_program->label);
         
     iap_state.cur_flash_address = iap_state.partition_to_program->address;
-
-    printf("here_2\n");
     
     esp_err_t result = esp_ota_begin(iap_state.partition_to_program, 0, &iap_state.ota_handle);
     if (result != ESP_OK) {

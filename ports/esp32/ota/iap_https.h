@@ -95,7 +95,7 @@ extern volatile bool iap_https_server_version_up_to_date;
 extern volatile uint8_t iap_https_server_major;
 extern volatile uint8_t iap_https_server_minor;
 extern volatile uint8_t iap_https_server_patch;
-void iap_https_get_server_version( uint8_t* major, uint8_t* minor, uint8_t* patch );
+void iap_https_get_server_version( uint8_t* major, uint8_t* minor, uint8_t* patch, uint8_t* error );
 void iap_https_install_server_image( void );
 
 #endif // __IAP_HTTPS__

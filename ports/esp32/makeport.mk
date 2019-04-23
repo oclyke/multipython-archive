@@ -12,7 +12,12 @@ FLASH_FREQ = 40m
 FLASH_SIZE = 4MB
 
 ESPIDF=/Users/owenlyke/EchoicTech/Products/reverb/esp-idf
+# ESPIDF=/Users/owenlyke/esp/esp-idf
 PYTHON2=python
+
+# # partitions ( use for OTA - select your custom partition table )
+# PART_SRC = partitions.csv
+PART_SRC = partitions_ota.csv
 
 include Makefile
 

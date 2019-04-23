@@ -115,7 +115,9 @@ INC_ESPCOMP += -I$(ESPCOMP)/pthread/include
 INC_ESPCOMP += -I$(ESPCOMP)/smartconfig_ack/include
 INC_ESPCOMP += -I$(ESPCOMP)/sdmmc
 INC_ESPCOMP += -I$(ESPCOMP)/sdmmc/include
-
+INC_ESPCOMP += -I$(ESPCOMP)/esp_http_client/include
+INC_ESPCOMP += -I$(ESPCOMP)/esp_http_client/lib/include
+INC_ESPCOMP += -I$(ESPCOMP)/tcp_transport/include
 
 # these flags are common to C and C++ compilation
 CFLAGS_COMMON = -Os -ffunction-sections -fdata-sections -fstrict-volatile-bitfields \
@@ -214,6 +216,8 @@ SRC_C = \
 	ota/wifi_sta.c \
 	ota/wifi_tls.c \
 	$(SRC_MOD)
+
+# modota.c
 
 EXTMOD_SRC_C = $(addprefix extmod/,\
 	modonewire.c \
@@ -398,6 +402,10 @@ ESPIDF_EXPAT_O = $(addprefix $(ESPCOMP)/expat/,\
 	expat/expat/lib/xmlparse.o \
 	expat/expat/lib/xmlrole.o \
 	expat/expat/lib/xmltok_impl.o \
+	)
+
+ESPIDF_HTTP_CLIENT_O = $(addprefix $(ESPCOMP)/esp_http_client/,\
+	esp_http_client.o \
 	)
 
 ESPIDF_PTHREAD_O = $(addprefix $(ESPCOMP)/pthread/,\
@@ -755,6 +763,7 @@ OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_SPI_FLASH_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_ULP_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_WPA_SUPPLICANT_O))
 OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_SDMMC_O))
+OBJ_ESPIDF += $(addprefix $(BUILD)/, $(ESPIDF_HTTP_CLIENT_O))
 
 $(OBJ_ESPIDF): $(SDKCONFIG_H)
 
@@ -788,6 +797,7 @@ LIB_ESPIDF += wpa_supplicant
 LIB_ESPIDF += sdmmc
 LIB_ESPIDF += bootloader_support
 LIB_ESPIDF += micro_ecc
+LIB_ESPIDF += esp_http_client
 
 BUILD_ESPIDF_LIB = $(BUILD)/esp-idf
 
@@ -831,6 +841,7 @@ $(eval $(call gen_espidf_lib_rule,wpa_supplicant,$(ESPIDF_WPA_SUPPLICANT_O)))
 $(eval $(call gen_espidf_lib_rule,sdmmc,$(ESPIDF_SDMMC_O)))
 $(eval $(call gen_espidf_lib_rule,bootloader_support,$(ESPIDF_BOOTLOADER_SUPPORT_O)))
 $(eval $(call gen_espidf_lib_rule,micro_ecc,$(ESPIDF_MICRO_ECC_O)))
+$(eval $(call gen_espidf_lib_rule,esp_http_client,$(ESPIDF_HTTP_CLIENT_O)))
 
 LIB = $(foreach lib,$(LIB_ESPIDF),$(BUILD_ESPIDF_LIB)/$(lib)/lib$(lib).a)
 
@@ -1081,10 +1092,10 @@ $(BUILD)/bootloader.elf: $(BOOTLOADER_OBJ) $(addprefix $(BOOTLOADER_LIB_DIR)/lib
 # Declarations to build the partitions
 
 PYTHON2 ?= python2
-PART_SRC = partitions.csv
+PART_SRC ?= partitions.csv
 
 $(BUILD)/partitions.bin: $(PART_SRC)
-	$(ECHO) "Create $@"
+	$(ECHO) "Create $@ using $<"
 	$(Q)$(PYTHON2) $(ESPCOMP)/partition_table/gen_esp32part.py -q $< $@
 
 ################################################################################
