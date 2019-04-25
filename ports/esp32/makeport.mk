@@ -17,7 +17,8 @@ PYTHON2=python
 
 # # partitions ( use for OTA - select your custom partition table )
 # PART_SRC = partitions.csv
-PART_SRC = partitions_ota.csv
+# PART_SRC = partitions_ota.csv
+PART_SRC = partitions_large_app.csv
 
 include Makefile
 
