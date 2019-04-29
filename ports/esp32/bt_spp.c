@@ -39,11 +39,15 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "sys/time.h"
 
 
+#include "bt_spp.h"
+
+#include "py/mpstate.h"
+#include "py/mphal.h"
 
 
 #define SPP_TAG "SPP_ACCEPTOR_DEMO"
 #define SPP_SERVER_NAME "SPP_SERVER"
-#define EXCAMPLE_DEVICE_NAME "ESP_SPP_ACCEPTOR"
+#define EXCAMPLE_DEVICE_NAME "Mach1 LED Controller" // todo: unique-ify this name
 #define SPP_SHOW_DATA 0
 #define SPP_SHOW_SPEED 1
 #define SPP_SHOW_MODE SPP_SHOW_DATA    /*Choose show mode: show data or speed*/ // SPP_SHOW_SPEED // SPP_SHOW_DATA
@@ -56,7 +60,8 @@ static long data_num = 0;
 static const esp_spp_sec_t sec_mask = ESP_SPP_SEC_AUTHENTICATE;
 static const esp_spp_role_t role_slave = ESP_SPP_ROLE_SLAVE;
 
-
+volatile uint32_t bt_spp_handle = 0;
+volatile bool bt_spp_ready = false;
 
 
 
@@ -79,6 +84,7 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
         break;
     case ESP_SPP_CLOSE_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_CLOSE_EVT");
+        bt_spp_ready = false;
         break;
     case ESP_SPP_START_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_START_EVT");
@@ -87,24 +93,43 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
         ESP_LOGI(SPP_TAG, "ESP_SPP_CL_INIT_EVT");
         break;
     case ESP_SPP_DATA_IND_EVT:
-#if (SPP_SHOW_MODE == SPP_SHOW_DATA)
-        ESP_LOGI(SPP_TAG, "ESP_SPP_DATA_IND_EVT len=%d handle=%d",
-                 param->data_ind.len, param->data_ind.handle);
-        // esp_log_buffer_hex("",param->data_ind.data,param->data_ind.len);
-        esp_log_buffer_char("",param->data_ind.data,param->data_ind.len);
-#else
-        gettimeofday(&time_new, NULL);
-        data_num += param->data_ind.len;
-        if (time_new.tv_sec - time_old.tv_sec >= 3) {
-            print_speed();
+        bt_spp_handle = param->data_ind.handle;
+        bt_spp_ready = true;
+        for( uint16_t indi = 0; indi < param->data_ind.len; indi++ ){
+            uint8_t c = *(param->data_ind.data++);
+            if (c == mp_interrupt_char) {
+                // inline version of mp_keyboard_interrupt();
+                MP_STATE_VM(mp_pending_exception) = MP_OBJ_FROM_PTR(&MP_STATE_VM(mp_kbd_exception));
+                #if MICROPY_ENABLE_SCHEDULER
+                if (MP_STATE_VM(sched_state) == MP_SCHED_IDLE) {
+                    MP_STATE_VM(sched_state) = MP_SCHED_PENDING;
+                }
+                #endif
+            } else {
+                // // this is an inline function so will be in IRAM
+                // printf("putting in char: %d\n", c);
+                ringbuf_put(&stdin_ringbuf, c);
+            }
         }
-#endif
+
+// #if (SPP_SHOW_MODE == SPP_SHOW_DATA)
+//         ESP_LOGI(SPP_TAG, "ESP_SPP_DATA_IND_EVT len=%d handle=%d",
+//                  param->data_ind.len, param->data_ind.handle);
+//         // esp_log_buffer_hex("",param->data_ind.data,param->data_ind.len);
+//         esp_log_buffer_char("",param->data_ind.data,param->data_ind.len);
+// #else
+//         gettimeofday(&time_new, NULL);
+//         data_num += param->data_ind.len;
+//         if (time_new.tv_sec - time_old.tv_sec >= 3) {
+//             print_speed();
+//         }
+// #endif
         break;
     case ESP_SPP_CONG_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_CONG_EVT");
         break;
     case ESP_SPP_WRITE_EVT:
-        ESP_LOGI(SPP_TAG, "ESP_SPP_WRITE_EVT");
+        // ESP_LOGI(SPP_TAG, "ESP_SPP_WRITE_EVT");
         break;
     case ESP_SPP_SRV_OPEN_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_SRV_OPEN_EVT");

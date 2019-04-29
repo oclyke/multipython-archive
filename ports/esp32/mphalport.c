@@ -40,6 +40,8 @@
 #include "lib/utils/pyexec.h"
 #include "mphalport.h"
 
+#include "bt_spp.h"
+
 TaskHandle_t mp_main_task_handle;
 
 STATIC uint8_t stdin_ringbuf_array[256];
@@ -66,9 +68,20 @@ void mp_hal_stdout_tx_strn(const char *str, uint32_t len) {
     if (release_gil) {
         MP_THREAD_GIL_EXIT();
     }
-    for (uint32_t i = 0; i < len; ++i) {
+    for (uint32_t i = 0; i < len; ++i) { // Send via UART
         uart_tx_one_char(str[i]);
+        if( bt_spp_ready ){
+            esp_spp_write( bt_spp_handle, 1, (uint8_t*)(str + i) );
+        }
     }
+
+    // if( bt_spp_ready ){
+    //     if( (str != NULL) && (len != 0) ){
+    //         esp_spp_write( bt_spp_handle, len, (uint8_t*)str );
+    //     }        
+    //     // esp_spp_write( bt_spp_handle, strlen(test_text), (uint8_t*)test_text );
+    // }
+
     if (release_gil) {
         MP_THREAD_GIL_ENTER();
     }
