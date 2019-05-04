@@ -11,6 +11,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "esp_gap_ble_api.h"
+#include "esp_gatts_api.h"
+#include "esp_bt_defs.h"
+#include "esp_bt_main.h"
+
 /*
  * DEFINES
  ****************************************************************************************
@@ -23,6 +28,13 @@
 #define SPP_CMD_MAX_LEN            (20)
 #define SPP_STATUS_MAX_LEN         (20)
 #define SPP_DATA_BUFF_MAX_LEN      (2*1024)
+
+extern volatile uint16_t ble_spp_conn_id;
+extern volatile esp_gatt_if_t ble_spp_gatts_if;
+extern volatile bool ble_spp_is_connected;
+extern volatile uint16_t ble_spp_mtu_size;
+
+
 ///Attributes State Machine
 enum{
     SPP_IDX_SVC,
@@ -49,3 +61,7 @@ enum{
 
     SPP_IDX_NB,
 };
+
+extern uint16_t ble_spp_handle_table[SPP_IDX_NB];
+
+extern const esp_gatts_attr_db_t ble_spp_gatt_db[SPP_IDX_NB];

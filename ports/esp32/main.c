@@ -175,18 +175,20 @@ soft_reset:
 }
 
 // extern void bt_spp_test( void );
-// void app_main(void) {
-//     nvs_flash_init();
-//     bt_spp_test();
-//     xTaskCreatePinnedToCore(mp_task, "mp_task", MP_TASK_STACK_LEN, NULL, MP_TASK_PRIORITY, &mp_main_task_handle, MICROPY_REPL_CORE );
-// }
-
-// extern void bt_spp_test( void );
 extern void test_ble_spp( void );
 void app_main(void) {
+    nvs_flash_init();
     // bt_spp_test();
     test_ble_spp();
+    xTaskCreatePinnedToCore(mp_task, "mp_task", MP_TASK_STACK_LEN, NULL, MP_TASK_PRIORITY, &mp_main_task_handle, MICROPY_REPL_CORE );
 }
+
+// // extern void bt_spp_test( void );
+// extern void test_ble_spp( void );
+// void app_main(void) {
+//     // bt_spp_test();
+//     test_ble_spp();
+// }
 
 void nlr_jump_fail(void *val) {
     printf("NLR jump failed, val=%p\n", val);
