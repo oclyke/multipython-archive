@@ -240,6 +240,7 @@ SRC_C = \
 	ota/wifi_sta.c \
 	ota/wifi_tls.c \
 	bt_spp.c \
+	ble_spp.c \
 	$(SRC_MOD)
 
 # 	static_spp_example.S
@@ -900,6 +901,8 @@ ESPIDF_BT_O = $(addprefix $(ESPCOMP)/bt/,\
 	bluedroid/stack/gap/gap_api.o \
 	bluedroid/bta/gatt/bta_gatt_common.o \
 	bluedroid/stack/rfcomm/rfc_I2cap_if.o \
+	bluedroid/api/esp_gatts_api.o \
+	bluedroid/api/esp_gap_ble_api.o \
 	)
 
 OBJ_ESPIDF =
