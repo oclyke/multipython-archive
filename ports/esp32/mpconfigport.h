@@ -10,6 +10,11 @@
 #define MICROPY_GET_CORE_INDEX              (xPortGetCoreID())
 #define MICROPY_REPL_CORE                   (1)
 
+// flash block device sizing 
+// - should take into consideration the partition file in use
+#define MICROPY_FLASHBDEV_START             (0xC60000)
+#define MICROPY_FLASHBDEV_SIZE              (0x2D0000)
+
 // object representation and NLR handling
 #define MICROPY_OBJ_REPR                    (MICROPY_OBJ_REPR_A)
 #define MICROPY_NLR_SETJMP                  (1)
