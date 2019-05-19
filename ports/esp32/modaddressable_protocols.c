@@ -32,9 +32,11 @@ const modadd_protocol_t modadd_protocol_apa102 = {
     .bpl = 4,
     .or_mask = apa102_or_mask,
     .indices = apa102_indices,
-    .num_leading = 4,
+    .num_leading_const = 4,
+    .num_leading_rate = 0,
     .leading = apa102_leading,
-    .num_trailing = 0, 
+    .num_trailing_const = 0, 
+    .num_trailing_rate = 16,
     .trailing = NULL,
 };
 
@@ -44,9 +46,11 @@ const modadd_protocol_t modadd_protocol_ws2812 = {
     .bpl = 3,
     .or_mask = ws2812_or_mask,
     .indices = ws2812_indices,
-    .num_leading = 5,   // ws2812 uses a reset code of 50 us, that's 40 bits at 1.25 us/bit, or 5 bytes. But the bytes should be all low, rather than the '0' code which has high and low portions
+    .num_leading_const = 5,   // ws2812 uses a reset code of 50 us, that's 40 bits at 1.25 us/bit, or 5 bytes. But the bytes should be all low, rather than the '0' code which has high and low portions
+    .num_leading_rate = 0,
     .leading = NULL,
-    .num_trailing = 0, 
+    .num_trailing_const = 0, 
+    .num_trailing_rate = 0,
     .trailing = NULL,
 };
 

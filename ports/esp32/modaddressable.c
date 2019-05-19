@@ -420,7 +420,9 @@ void modadd_ctrl_recompute_fixtures( modadd_ctrl_t* ctrl ){
     }
     printf("Total LEDs in the chain: %d\n", recomp.total_leds);
 
-    size_t length_required = (recomp.total_leds * protocol->bpl) + protocol->num_leading + protocol->num_trailing;
+    size_t startup_bytes = (protocol->num_leading_rate == 0) ? (protocol->num_leading_const) : ((recomp.total_leds / protocol->num_leading_rate) + protocol->num_leading_const);
+    size_t shutdown_bytes = (protocol->num_trailing_rate == 0) ? (protocol->num_trailing_const) : ((recomp.total_leds / protocol->num_trailing_rate) + protocol->num_trailing_const);
+    size_t length_required = (recomp.total_leds * protocol->bpl) + startup_bytes + shutdown_bytes;
     if( ctrl->fixture_ctrl.data == NULL ){
         // Need to allocate memory regardless
         printf("First memory allocation for this controller.\n");
@@ -437,7 +439,7 @@ void modadd_ctrl_recompute_fixtures( modadd_ctrl_t* ctrl ){
     }
     uint8_t* data = (uint8_t*)MODADD_MALLOC_DMA( length_required * sizeof(uint8_t) );
     if( data == NULL ){
-    printf("allocation failed. Please reduce the number of fixtures on this string and try again\n");
+        printf("allocation failed. Please reduce the number of fixtures on this string and try again\n");
         return;
     }
     ctrl->fixture_ctrl.data = data;
@@ -450,11 +452,11 @@ void modadd_ctrl_recompute_fixtures( modadd_ctrl_t* ctrl ){
 
     // Prepare to do the second phase of recomputation - setting fixture data offsets and linking back to the ctrl structure    
     recomp.ctrl = ctrl;
-    recomp.data = ctrl->fixture_ctrl.data + protocol->num_leading;
+    recomp.data = ctrl->fixture_ctrl.data + startup_bytes;
     modadd_fixture_foreach(ctrl->fixture_ctrl.head, modadd_fixture_recomputation, (void*)&recomp);    
 
     // now apply the mask for this protocol to all applicable memory locations (note: this will probably clear all LED data)
-    uint8_t* base = ctrl->fixture_ctrl.data + protocol->num_leading;
+    uint8_t* base = ctrl->fixture_ctrl.data + startup_bytes;
     for(uint32_t led_ind = 0; led_ind < recomp.total_leds; led_ind++){
         for(uint8_t component_ind = 0; component_ind < protocol->bpl; component_ind++ ){
             uint8_t* location = base + ((led_ind)*(protocol->bpl)) + component_ind;

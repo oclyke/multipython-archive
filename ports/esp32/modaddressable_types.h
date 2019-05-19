@@ -88,13 +88,15 @@ typedef enum{
 }modadd_color_ind_e;
 
 typedef struct _modadd_protocol_t{
-    const uint8_t               bpl;            // bytes per led
-    const uint8_t*              or_mask;        // array of length bpl that will be OR'd with the data
-    const modadd_color_ind_e*   indices;        // array of length bpl that shows which color goes where (good for R, G, B, and A)
-    const uint8_t               num_leading;    // length of leading bytes (that are sent ahead of any fixture data)
-    const uint8_t*              leading;        // the leading bytes to send, if any
-    const uint8_t               num_trailing;   // length of trailing bytes 
-    const uint8_t*              trailing;       // the trailing bytes to send, if any
+    const uint8_t               bpl;                // bytes per led
+    const uint8_t*              or_mask;            // array of length bpl that will be OR'd with the data
+    const modadd_color_ind_e*   indices;            // array of length bpl that shows which color goes where (good for R, G, B, and A)
+    const uint8_t               num_leading_rate;   // number of extra bytes needed to be sent per led in the strip (sent in pre xfer)
+    const uint8_t               num_leading_const;  // constant length of leading bytes (that are sent ahead of any fixture data)
+    const uint8_t*              leading;            // the leading bytes to send, if any
+    const uint8_t               num_trailing_rate;  // number of extra bytes needed to be sent per led in the strip (sent after led data)
+    const uint8_t               num_trailing_const; // length of trailing bytes 
+    const uint8_t*              trailing;           // the trailing bytes to send, if any             
 }modadd_protocol_t;
 
 typedef struct _modadd_fixture_ctrl_t modadd_fixture_ctrl_t;
