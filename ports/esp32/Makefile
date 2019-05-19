@@ -231,6 +231,7 @@ SRC_C = \
 	modaddressable_timer.c \
 	modaddressable_output.c \
 	modaddressable_controllers.c \
+	modaddressable_layer.c \
 	modaddressable.c \
 	modmach1.c \
 	mpstate_spiram.c \

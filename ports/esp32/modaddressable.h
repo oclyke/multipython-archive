@@ -54,6 +54,7 @@ and output will only be allocated:
 #include "modaddressable_fixture.h"
 #include "modaddressable_output.h"
 #include "modaddressable_controllers.h"
+#include "modaddressable_layer.h"
 
 #include "modartnet.h"
 

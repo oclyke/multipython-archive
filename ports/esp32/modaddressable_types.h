@@ -52,8 +52,27 @@ typedef enum {
     MACH1_CONTROLLER_UNKNOWN,
 }modadd_controllers_e;
 
+typedef enum {
+    MODADD_OP_SET = 0x00,
+    MODADD_OP_OR,
+    MODADD_OP_AND,
+    MODADD_OP_XOR,
+
+    MODADD_OP_NUM,
+}modadd_operations_e;
+
 typedef struct _modadd_ctrl_t modadd_ctrl_t;
 
+
+
+///////////////////////////////////////////////////////////////////////////
+/* Layer Types                                                           */
+///////////////////////////////////////////////////////////////////////////
+typedef struct _moadd_layer_node_t modadd_layer_node_t;
+struct _moadd_layer_node_t{         // linked list of layers
+    mp_obj_t                layer;  // points at the layer class object for this node
+    modadd_layer_node_t*    next;   // points at the next node in the linked list 
+};
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -101,16 +120,15 @@ typedef struct _modadd_protocol_t{
 
 typedef struct _modadd_fixture_ctrl_t modadd_fixture_ctrl_t;
 typedef struct _modadd_fixture_t {
-    char*                       name;
-    modadd_fixt_id_t            id;
-    modadd_protocols_e          protocol;
-    uint32_t                    leds;
-    modadd_ctrl_t*              ctrl;   // pointer to the control structure that this fixture is associated with
-    // modadd_fixt_offset_t        offset; // starting led number in the whole chain of outputs. e.g. if the only fixture ahead of this fixture had 3 leds in it then the offset for this fixture is 3
-    uint8_t*                    data;   // pointer to data for this fixture
-    // modadd_fixture_trans_t*     trans;  // todo: reconsider storing rotation / translation data on the ESP32... maybe OK just to use it on the phone?
-    // modadd_fixture_rot_t*       rot;
-    struct _modadd_fixture_t*   next;
+    char*                           name;
+    modadd_fixt_id_t                id;
+    modadd_protocols_e              protocol;
+    uint32_t                        leds;
+    modadd_ctrl_t*                  ctrl;   // pointer to the control structure that this fixture is associated with
+    uint8_t*                        data;   // pointer to data for this fixture
+    // modadd_fixture_trans_t*         trans;  // todo: reconsider storing rotation / translation data on the ESP32... maybe OK just to use it on the phone? Or maybe the 4 MB SRAM can justify it...
+    // modadd_fixture_rot_t*           rot;
+    struct _modadd_fixture_t*       next;
 }modadd_fixture_t;
 typedef modadd_fixture_t* modadd_fixture_iter_t;
 

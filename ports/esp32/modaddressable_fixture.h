@@ -43,8 +43,9 @@ mp_obj_t addressable_fixture_make_new( const mp_obj_type_t *type, size_t n_args,
 
 // this is the actual C-structure for our new object
 typedef struct _addressable_fixture_obj_t {
-    mp_obj_base_t base;         // base represents some basic information, like type
-    modadd_fixture_t* info;     // the fixture info
+    mp_obj_base_t           base;       // base represents some basic information, like type
+    modadd_fixture_t*       info;       // the fixture info
+    modadd_layer_node_t*    layers;     // linked list of layers
 } addressable_fixture_obj_t;
 
 

@@ -143,11 +143,12 @@ mp_obj_t addressable_controller_make_new( const mp_obj_type_t *type, size_t n_ar
     return MP_OBJ_FROM_PTR(self);
 }
 
+extern void dict_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);
 STATIC void addressable_controller_print( const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind ) {
-    // get a ptr to the C-struct of the object
-    addressable_controller_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    // print the number
-    printf ("Addressable controller class object with id = %d, and protocol = %d\n", self->id, self->info->output.protocol);
+    addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    printf ("Addressable controller class object w/ fixtures:\n");
+    // dict_print(&mp_plat_print, addressable_controller_dict(self_in), kind);
+    // dict_print(&mp_plat_print, addressable_controller_fixtures( 1, self_in, NULL), kind);
 }
 
 STATIC mp_obj_t addressable_controller_add_fixture(mp_obj_t self_in, mp_obj_t fixture_obj) { // todo: convert this function to optionally take a list of fixtures to add!
@@ -333,6 +334,7 @@ STATIC const mp_rom_map_elem_t mp_module_addressable_globals_table[] = {
 
     { MP_ROM_QSTR(MP_QSTR_controller),  MP_ROM_PTR(&addressable_controllerObj_type) },
     { MP_ROM_QSTR(MP_QSTR_fixture),     MP_ROM_PTR(&addressable_fixtureObj_type) },
+    // { MP_ROM_QSTR(MP_QSTR_layer),     MP_ROM_PTR(&addressable_layerObj_type) }, // temporary, just to test layer creation!
 
     { MP_ROM_QSTR(MP_QSTR_STAT_CONTROLLER), MP_ROM_INT(MACH1_CONTROLLER_STAT) },
     { MP_ROM_QSTR(MP_QSTR_ALED_CONTROLLER), MP_ROM_INT(MACH1_CONTROLLER_ALED) },

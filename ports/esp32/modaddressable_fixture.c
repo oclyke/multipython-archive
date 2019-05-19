@@ -82,7 +82,11 @@ mp_obj_t addressable_fixture_get_dict( mp_obj_t fixture_obj, mp_int_t position )
 
 
 
+STATIC mp_obj_t addressable_fixture_add_layer(mp_obj_t self_in);
+MP_DEFINE_CONST_FUN_OBJ_1(addressable_fixture_add_layer_obj, addressable_fixture_add_layer);
 
+STATIC mp_obj_t addressable_fixture_layers(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args);
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(addressable_fixture_layers_obj, 0, addressable_fixture_layers);
 
 STATIC mp_obj_t addressable_fixture_set(mp_obj_t self_in, mp_obj_t index, mp_obj_t rgb);
 MP_DEFINE_CONST_FUN_OBJ_3(addressable_fixture_set_obj, addressable_fixture_set);
@@ -95,6 +99,8 @@ STATIC void addressable_fixture_print( const mp_print_t *print, mp_obj_t self_in
 
 
 STATIC const mp_rom_map_elem_t addressable_fixture_locals_dict_table[] = {
+    { MP_ROM_QSTR(MP_QSTR_add_layer), MP_ROM_PTR(&addressable_fixture_add_layer_obj) },
+    { MP_ROM_QSTR(MP_QSTR_layers), MP_ROM_PTR(&addressable_fixture_layers_obj) },
     { MP_ROM_QSTR(MP_QSTR_set), MP_ROM_PTR(&addressable_fixture_set_obj) },
     { MP_ROM_QSTR(MP_QSTR_artnet), MP_ROM_PTR(&addressable_fixture_artnet_obj) },
  };
@@ -207,15 +213,109 @@ mp_obj_t addressable_fixture_make_new( const mp_obj_type_t *type, size_t n_args,
         }
     }
 
-    
     return MP_OBJ_FROM_PTR(self);
 }
 
+extern void dict_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);
 STATIC void addressable_fixture_print( const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind ) {
     // get a ptr to the C-struct of the object
     addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
     // print the number
-    printf ("Fixture class object with #leds = %d\n", self->info->leds);
+    // printf ("Fixture class object with #leds = %d\n", self->info->leds);
+    printf ("Fixture class object:\n");
+    dict_print(&mp_plat_print, addressable_fixture_get_dict( self_in, -1 ), kind);
+}
+
+
+STATIC mp_obj_t addressable_fixture_add_layer(mp_obj_t self_in){
+    addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    mp_obj_t layer = addressable_layer_make_new( &addressable_layerObj_type, 1, 0, &self_in );
+    modadd_layer_node_t* node = NULL;
+    if( self->layers == NULL ){ 
+        node = modadd_new_layer_node(); 
+        self->layers = node;                                    // if there are no layers then set layers to the new node
+    }   
+    else{ 
+        node = modadd_layer_append_new( self->layers );         // if there are layers then append a new node
+    }
+    if(node == NULL){ return mp_const_none; }
+    node->layer = layer;
+    return layer;
+}
+
+STATIC mp_obj_t addressable_fixture_layers(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
+    // get list of layers, or single layer if index provided
+    enum { ARG_self_in, ARG_index };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_self_in,  MP_ARG_REQUIRED | MP_ARG_OBJ,   {.u_obj = mp_const_none} },
+        { MP_QSTR_index,    MP_ARG_OBJ,                     {.u_obj = mp_const_none} },
+    };
+
+    // parse args
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    if( !mp_obj_is_type( args[ARG_self_in].u_obj, &addressable_fixtureObj_type ) ){
+        mp_raise_TypeError("the first argument 'self' must be a fixture class object\n");
+    }
+    addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(args[ARG_self_in].u_obj);
+
+    mp_obj_t layers_list = mp_obj_new_list( 0, NULL );
+    modadd_layer_iter_t iter = NULL;
+
+    if( !mp_obj_is_type( args[ARG_index].u_obj, &mp_type_NoneType ) ){
+        if( mp_obj_is_int( args[ARG_index].u_obj ) ){
+            uint32_t layer_index = 0;
+            uint32_t desired_index = mp_obj_int_get_truncated( args[ARG_index].u_obj );
+            for( iter = modadd_layer_iter_first(MODADD_ITER_FROM_LAYER_PTR( self->layers )); !modadd_layer_iter_done(iter); iter = modadd_layer_iter_next(iter) ){
+                if( layer_index == desired_index ){
+                    addressable_layer_obj_t* layer = MODADD_LAYER_PTR_FROM_ITER( iter )->layer;
+
+                    // todo: does returning just this pointer work? are there lifespan problems? Do I need to make an alias of the layer as a new mp object?
+
+                    // mp_obj_t layer = addressable_layer_make_new( &addressable_layerObj_type, 0, 0, NULL );
+                    // addressable_fixture_obj_t* p_fix = MP_OBJ_TO_PTR(fix);
+                    // p_fix->info = fixture;   // point to the same data
+                    // // mp_obj_list_append(fixtures_list, addressable_fixture_get_dict( fix, fixture_index ) );
+                    // //mp_obj_list_append(fixtures_list, fix );
+
+                    return layer;
+                }
+                layer_index++;
+            }
+            return mp_const_none;
+        }else if( mp_obj_is_type( args[ARG_index].u_obj, &mp_type_list ) ){
+            size_t size;
+            mp_obj_t* items;
+            mp_obj_list_get( args[ARG_index].u_obj, &size, &items );
+
+            for( size_t list_index = 0; list_index < size; list_index++ ){
+                mp_obj_t element = items[list_index];
+                if( mp_obj_is_int( element ) ){
+                    uint32_t layer_index = 0;
+                    uint32_t desired_index = mp_obj_int_get_truncated( element );
+                    for( iter = modadd_layer_iter_first(MODADD_ITER_FROM_LAYER_PTR( self->layers )); !modadd_layer_iter_done(iter); iter = modadd_layer_iter_next(iter) ){
+                        if( layer_index == desired_index ){
+                            addressable_layer_obj_t* layer = MODADD_LAYER_PTR_FROM_ITER( iter )->layer; // todo: still not sure if I need to make this pointer into a new mp object for lifespan considerations...?
+                            mp_obj_list_append(layers_list, layer );
+                        }
+                        layer_index++;
+                    }
+                }
+            }
+        }else{
+            mp_raise_TypeError("index must be an integer or list of integers\n");
+            return mp_const_none;
+        }
+    }else{
+        uint32_t count = 0;
+        for( iter = modadd_layer_iter_first(MODADD_ITER_FROM_LAYER_PTR( self->layers )); !modadd_layer_iter_done(iter); iter = modadd_layer_iter_next(iter) ){
+            addressable_layer_obj_t* layer = MODADD_LAYER_PTR_FROM_ITER( iter )->layer;
+            mp_obj_list_append(layers_list, layer );
+            count++;
+        }
+    }
+    return layers_list;
 }
 
 STATIC mp_obj_t addressable_fixture_set(mp_obj_t self_in, mp_obj_t start_index_obj, mp_obj_t colors) {
