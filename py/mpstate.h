@@ -268,6 +268,7 @@ typedef struct _mp_context_dynmem_node_t{
 typedef struct _mp_task_args_t {
     mp_parse_input_kind_t   input_kind;
     void*                   source;
+    uint8_t                 suspend;    // 1 to suspend at startup
     void*                   addtl;
 }mp_task_args_t;
 

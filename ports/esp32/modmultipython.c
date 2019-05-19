@@ -79,6 +79,7 @@ STATIC mp_obj_t multipython_get_context_dict( mp_context_node_t* context, mp_int
     const char* str_key_thread = "thread";
     const char* str_key_args = "args";
     const char* str_key_status = "status";
+    const char* str_key_context = "context_address";
 
     mp_obj_t key_pos = mp_obj_new_str_via_qstr(str_key_pos, strlen(str_key_pos));
     mp_obj_t key_tID = mp_obj_new_str_via_qstr(str_key_tID, strlen(str_key_tID));
@@ -87,6 +88,7 @@ STATIC mp_obj_t multipython_get_context_dict( mp_context_node_t* context, mp_int
     mp_obj_t key_thread = mp_obj_new_str_via_qstr(str_key_thread, strlen(str_key_thread));
     mp_obj_t key_args = mp_obj_new_str_via_qstr(str_key_args, strlen(str_key_args));
     mp_obj_t key_status = mp_obj_new_str_via_qstr(str_key_status, strlen(str_key_status));
+    mp_obj_t key_context = mp_obj_new_str_via_qstr(str_key_context, strlen(str_key_context));
 
     mp_obj_t pos;
     if(position < 0){ pos = mp_const_none; }
@@ -97,6 +99,7 @@ STATIC mp_obj_t multipython_get_context_dict( mp_context_node_t* context, mp_int
     mp_obj_t thread = mp_obj_new_int((mp_int_t)context->threadctrl);
     mp_obj_t args = mp_obj_new_int((mp_int_t)&context->args);
     mp_obj_t status = mp_obj_new_int((mp_int_t)context->status);
+    mp_obj_t context_obj = mp_obj_new_int((mp_int_t)context);
 
     mp_obj_dict_store( context_dict,    key_pos,       pos      );
     mp_obj_dict_store( context_dict,    key_tID,       tID      );
@@ -105,6 +108,7 @@ STATIC mp_obj_t multipython_get_context_dict( mp_context_node_t* context, mp_int
     mp_obj_dict_store( context_dict,    key_thread,    thread   );
     mp_obj_dict_store( context_dict,    key_args,      args     );
     mp_obj_dict_store( context_dict,    key_status,    status   );
+    mp_obj_dict_store( context_dict,    key_context,   context_obj   );
 
     return context_dict;
 }
@@ -146,6 +150,7 @@ int8_t multipython_resume_task( uint32_t taskID ){
 // interface 
 STATIC mp_obj_t multipython_start(size_t n_args, const mp_obj_t *args) { // todo: allow to set priority and heap size!
     // start new processes (contexts)
+    enum { ARG_source, ARG_type, ARG_core, ARG_suspend };
 
     if(n_args == 0){ return mp_const_none; }
 
@@ -155,7 +160,7 @@ STATIC mp_obj_t multipython_start(size_t n_args, const mp_obj_t *args) { // todo
         return mp_const_none; 
     }
 
-    const char *str = mp_obj_str_get_str(args[0]);
+    const char *str = mp_obj_str_get_str(args[ARG_source]);
     size_t len = strlen(str) + 1;
 
     void* source = mp_context_dynmem_alloc( len, context ); // allocate global memory tied to the allocated context
@@ -167,9 +172,13 @@ STATIC mp_obj_t multipython_start(size_t n_args, const mp_obj_t *args) { // todo
     memcpy(source, (void*)str, len);
     context->args.input_kind = MP_PARSE_FILE_INPUT;
     context->args.source = source;
+    context->args.suspend = 0;
+    if( n_args > 3 ){
+        context->args.suspend = mp_obj_int_get_truncated( args[ARG_suspend] );
+    }
 
     if( n_args >1 ){
-        if( mp_obj_int_get_truncated( args[1] ) == MP_PARSE_SINGLE_INPUT ){
+        if( mp_obj_int_get_truncated( args[ARG_type] ) == MP_PARSE_SINGLE_INPUT ){
             context->args.input_kind = MP_PARSE_SINGLE_INPUT;
         }
     }
@@ -177,7 +186,7 @@ STATIC mp_obj_t multipython_start(size_t n_args, const mp_obj_t *args) { // todo
     
     if( n_args > 2 ){
         uint8_t core = 0;
-        core = mp_obj_int_get_truncated( args[2] );
+        core = mp_obj_int_get_truncated( args[ARG_core] );
         if( core > 1 ){
             core = 1;
         }
@@ -193,10 +202,10 @@ STATIC mp_obj_t multipython_start(size_t n_args, const mp_obj_t *args) { // todo
         xTaskCreate(multipython_task_template, "", MULTIPYTHON_TASK_STACK_LEN, (void*)context, MULTIPYTHON_TASK_PRIORITY+1, NULL); // core determined by FreeRTOS
     }    
     
-    return mp_const_none;
+    return MP_OBJ_NEW_SMALL_INT((uint32_t)context);
 }
 // STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_start_obj, 1, 2, multipython_start);
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_start_obj, 1, 3, multipython_start);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_start_obj, 1, 4, multipython_start);
 
 STATIC mp_obj_t multipython_stop(size_t n_args, const mp_obj_t *args) {
     // stop all processes
@@ -429,6 +438,27 @@ STATIC mp_obj_t multipython_get(size_t n_args, const mp_obj_t *args) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(multipython_get_obj, 0, 1, multipython_get);
 
+STATIC mp_obj_t multipython_get_task_id(mp_obj_t context_ptr_obj) {
+    // return the taskID for the task whose context is at the address pointed to by the context ptr number
+    if( !mp_obj_is_int(context_ptr_obj) ){
+        return mp_const_none;
+    }
+
+    mp_context_node_t* context = (mp_context_node_t*)mp_obj_int_get_truncated( context_ptr_obj );
+    mp_context_iter_t iter = NULL;
+
+    if( context == NULL ){
+        return mp_const_none;
+    }
+
+    for( iter = mp_context_iter_first(MP_ITER_FROM_CONTEXT_PTR(mp_context_head)); !mp_context_iter_done(iter); iter = mp_context_iter_next(iter) ){
+        if(MP_CONTEXT_PTR_FROM_ITER(iter) == context){ break; }
+    }
+
+    return MP_OBJ_NEW_SMALL_INT((uint32_t)MP_CONTEXT_PTR_FROM_ITER(iter)->id);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(multipython_get_task_id_obj, multipython_get_task_id);
+
 
 
 // Module Definitions
@@ -440,6 +470,7 @@ STATIC const mp_rom_map_elem_t mp_module_multipython_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_suspend), MP_ROM_PTR(&multipython_suspend_obj) },
     { MP_ROM_QSTR(MP_QSTR_resume), MP_ROM_PTR(&multipython_resume_obj) },
     { MP_ROM_QSTR(MP_QSTR_get), MP_ROM_PTR(&multipython_get_obj) },
+    { MP_ROM_QSTR(MP_QSTR_get_tID), MP_ROM_PTR(&multipython_get_task_id_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(mp_module_multipython_globals, mp_module_multipython_globals_table);
 
@@ -504,7 +535,7 @@ void multipython_task_template( void* void_context ){
             break;
     }
     mp_task_heap = mp_task_alloc_heap_caps( mp_task_heap_size, mp_current_tIDs[MICROPY_GET_CORE_INDEX], MALLOC_CAP_SPIRAM );
-    printf("mp_task_heap ptr: 0x%X, size = 0x%X\n", (uint32_t)mp_task_heap, mp_task_heap_size );
+    // printf("mp_task_heap ptr: 0x%X, size = 0x%X\n", (uint32_t)mp_task_heap, mp_task_heap_size );
     #else
     // // Allocate the uPy heap using mp_task_alloc and get the largest available region
     // size_t mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
@@ -538,6 +569,12 @@ soft_reset:
     // if (pyexec_mode_kind == PYEXEC_MODE_FRIENDLY_REPL) {
     //     pyexec_file("main.py");
     // }
+
+    // Option to suspend the task at startup
+    if( context->args.suspend ){
+        context->status |= MP_CSUSP;
+        vTaskSuspend(NULL);
+    }
 
     uint8_t error = 0;
 

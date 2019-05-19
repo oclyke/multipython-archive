@@ -9,6 +9,7 @@
 #define MICROPY_NUM_CORES                   (2)
 #define MICROPY_GET_CORE_INDEX              (xPortGetCoreID())
 #define MICROPY_REPL_CORE                   (1)
+#define MICROPY_MULTIPY_DEFAULT_CORE        (1)
 
 // flash block device sizing 
 // - should take into consideration the partition file in use

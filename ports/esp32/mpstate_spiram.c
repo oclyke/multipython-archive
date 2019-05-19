@@ -13,11 +13,11 @@
 mp_context_dynmem_node_t* mp_new_dynmem_node_heap_caps( uint32_t caps ){
     mp_context_dynmem_node_t* node = NULL;
 
-    printf("about to allocate the node with caps = %d\n", (uint32_t)caps );
+    // printf("about to alslocate the node with caps = %d\n", (uint32_t)caps );
 
     node = (mp_context_dynmem_node_t*)MP_STATE_SPIRAM_MALLOC_HEAP_CAPS( sizeof(mp_context_dynmem_node_t), caps );
     if(node == NULL){
-        printf("failed\n" );
+        // printf("failed\n" );
         return node; 
     }
     memset((void*)node, 0x00, sizeof(mp_context_dynmem_node_t));
@@ -30,12 +30,12 @@ void* mp_context_dynmem_alloc_heap_caps( size_t size, mp_context_node_t* context
     mp_context_dynmem_node_t* node = mp_new_dynmem_node_heap_caps(caps);
     if( node == NULL ){ return NULL; } // no heap
 
-    printf("about to allocate the heap with caps = %d\n", (uint32_t)caps );
+    // printf("about to allocate the heap with caps = %d\n", (uint32_t)caps );
 
     void* mem = MP_STATE_SPIRAM_MALLOC_HEAP_CAPS(size, caps);
     if( mem == NULL){
 
-        printf("failed\n" );
+        // printf("failed\n" );
 
         MP_STATE_FREE(node);
         return NULL;
@@ -49,7 +49,7 @@ void* mp_context_dynmem_alloc_heap_caps( size_t size, mp_context_node_t* context
 
 void* mp_task_alloc_heap_caps( size_t size, uint32_t tID, uint32_t caps ){
     mp_context_node_t* context = mp_context_by_tid( tID );
-    printf("got context: 0x%X\n", (uint32_t)context );
+    // printf("got context: 0x%X\n", (uint32_t)context );
     if( context == NULL){ return NULL;}
     return mp_context_dynmem_alloc_heap_caps( size, context, caps );
 }
