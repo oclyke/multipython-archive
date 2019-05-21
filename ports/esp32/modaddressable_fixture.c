@@ -42,7 +42,7 @@ mp_obj_t addressable_fixture_get_dict( mp_obj_t fixture_obj, mp_int_t position )
     const char* str_key_leds = "leds";
     const char* str_key_ctrl = "ctrl";
     const char* str_key_data = "data";
-    const char* str_key_next = "next";
+    // const char* str_key_next = "next";
 
     mp_obj_t key_pos = mp_obj_new_str_via_qstr(str_key_pos, strlen(str_key_pos));
     mp_obj_t key_name = mp_obj_new_str_via_qstr(str_key_name, strlen(str_key_name));
@@ -51,20 +51,20 @@ mp_obj_t addressable_fixture_get_dict( mp_obj_t fixture_obj, mp_int_t position )
     mp_obj_t key_leds = mp_obj_new_str_via_qstr(str_key_leds, strlen(str_key_leds));
     mp_obj_t key_ctrl = mp_obj_new_str_via_qstr(str_key_ctrl, strlen(str_key_ctrl));
     mp_obj_t key_data = mp_obj_new_str_via_qstr(str_key_data, strlen(str_key_data));
-    mp_obj_t key_next = mp_obj_new_str_via_qstr(str_key_next, strlen(str_key_next));
+    // mp_obj_t key_next = mp_obj_new_str_via_qstr(str_key_next, strlen(str_key_next));
 
     mp_obj_t pos;
     if(position < 0){ pos = mp_const_none; }
     else{ pos = mp_obj_new_int(position); }
     mp_obj_t name;
-    if( fixture->info->name == NULL ){ name = mp_const_none; }
-    else{ name = mp_obj_new_str_via_qstr( fixture->info->name, strlen(fixture->info->name) ); }
-    mp_obj_t id = mp_obj_new_int( (mp_int_t)fixture->info->id );
-    mp_obj_t protocol = mp_obj_new_int( (mp_int_t)fixture->info->protocol );
-    mp_obj_t leds = mp_obj_new_int( (mp_int_t)fixture->info->leds );
-    mp_obj_t ctrl = mp_obj_new_int( (mp_int_t)fixture->info->ctrl );
-    mp_obj_t data = mp_obj_new_int( (mp_int_t)fixture->info->data );
-    mp_obj_t next = mp_obj_new_int( (mp_int_t)fixture->info->next );
+    if( fixture->name == NULL ){ name = mp_const_none; }
+    else{ name = mp_obj_new_str_via_qstr( fixture->name, strlen(fixture->name) ); }
+    mp_obj_t id = mp_obj_new_int( (mp_int_t)fixture->id );
+    mp_obj_t protocol = mp_obj_new_int( (mp_int_t)fixture->protocol );
+    mp_obj_t leds = mp_obj_new_int( (mp_int_t)fixture->leds );
+    mp_obj_t ctrl = mp_obj_new_int( (mp_int_t)fixture->ctrl );
+    mp_obj_t data = mp_obj_new_int( (mp_int_t)fixture->data );
+    // mp_obj_t next = mp_obj_new_int( (mp_int_t)fixture->next );
 
     mp_obj_dict_store( fixture_dict,    key_pos,        pos         );
     mp_obj_dict_store( fixture_dict,    key_name,       name        );
@@ -73,7 +73,7 @@ mp_obj_t addressable_fixture_get_dict( mp_obj_t fixture_obj, mp_int_t position )
     mp_obj_dict_store( fixture_dict,    key_leds,       leds        );
     mp_obj_dict_store( fixture_dict,    key_ctrl,       ctrl        );
     mp_obj_dict_store( fixture_dict,    key_data,       data        );
-    mp_obj_dict_store( fixture_dict,    key_next,       next        );
+    // mp_obj_dict_store( fixture_dict,    key_next,       next        );
 
     return fixture_dict;
 }
@@ -116,13 +116,7 @@ const mp_obj_type_t addressable_fixtureObj_type = {
     .locals_dict = (mp_obj_dict_t*)&addressable_fixture_locals_dict, // and the global members
 };
 
-
-addressable_fixture_obj_t mach1_stat_fixture_obj = {
-    .base = {
-        .type = &addressable_fixtureObj_type,
-    },
-    // .info = modadd_controllers[MACH1_CONTROLLER_STAT]->fixture_ctrl.head
-};
+// extern addressable_fixture_obj_t mach1_stat_fixture_obj;
 
 
 
@@ -144,25 +138,30 @@ mp_obj_t addressable_fixture_make_new( const mp_obj_type_t *type, size_t n_args,
     // // on error -> raise python exception
     // mp_arg_check_num(n_args, n_kw, 1, 1, true);
 
-    addressable_fixture_obj_t *self;
+    addressable_fixture_obj_t *self = NULL;
     if( args[ARG_get_stat_fixture].u_bool == true ){
-        // we want the stat fixture, so get that
-        mach1_stat_fixture_obj.info = modadd_controllers[MACH1_CONTROLLER_STAT]->fixture_ctrl.head;
-        self = &mach1_stat_fixture_obj;
-    }else{
+        // // we want the stat fixture, so get that
+        // addressable_fixture_obj_t* fix = (addressable_fixture_obj_t*)modadd_controllers[MACH1_CONTROLLER_STAT]->fixture_ctrl.head->fixture;
+        // mach1_stat_fixture_obj.info = fix->info;
+        // self = &mach1_stat_fixture_obj;
 
-        // dynamically allocate the modadd_fixture_t that this object will point to 
-        modadd_fixture_t* fix_info = (modadd_fixture_t*)MODADD_MALLOC(sizeof(modadd_fixture_t));
-        if( fix_info == NULL ){             // todo: !!! make sure there is a way to get rid of this memory when not needed !!! 
-            mp_raise_OSError(MP_ENOMEM);
-            return mp_const_none;
-        }
-        memset( (void*)fix_info, 0x00, sizeof(modadd_fixture_t) );
+        // todo: fix this (maybe done with below?)
+
+        return &machone_stat_fixture_obj;
+
+    }else{
+        // // dynamically allocate the modadd_fixture_t that this object will point to 
+        // modadd_fixture_t* fix_info = (modadd_fixture_t*)MODADD_MALLOC(sizeof(modadd_fixture_t));
+        // if( fix_info == NULL ){             // todo: !!! make sure there is a way to get rid of this memory when not needed !!! 
+        //     mp_raise_OSError(MP_ENOMEM);
+        //     return mp_const_none;
+        // }
+        // memset( (void*)fix_info, 0x00, sizeof(modadd_fixture_t) );
 
         // create a new object of our C-struct type
         self = m_new_obj(addressable_fixture_obj_t);
+        memset( (void*)self, 0x00, sizeof(addressable_fixture_obj_t) );
         self->base.type = &addressable_fixtureObj_type; // give it a type
-        self->info = fix_info;
 
         if( args[ARG_template].u_obj == mp_const_none ){
             // if(args[ARG_leds].u_int == 0){
@@ -170,13 +169,13 @@ mp_obj_t addressable_fixture_make_new( const mp_obj_type_t *type, size_t n_args,
             //     return mp_const_none;
             // }
 
-            self->info->leds = args[ARG_leds].u_int;
-            self->info->protocol = args[ARG_protocol].u_int;
+            self->leds = args[ARG_leds].u_int;
+            self->protocol = args[ARG_protocol].u_int;
             // printf("protocol is 0x%X\n", mp_obj_get_int_truncated(args[ARG_protocol].u_int));
 
             if( mp_obj_is_str(args[ARG_name].u_obj) ){
                 // printf("name is '%s'\n", mp_obj_str_get_str(args[ARG_name].u_obj));
-                self->info->name = (char*)mp_obj_str_get_str(args[ARG_name].u_obj);
+                self->name = (char*)mp_obj_str_get_str(args[ARG_name].u_obj);
             }/*else{
                 // printf("no name supplied\n");
             }*/
@@ -198,13 +197,18 @@ mp_obj_t addressable_fixture_make_new( const mp_obj_type_t *type, size_t n_args,
             // todo: reconsider storing rotation / translation data on the ESP32... maybe OK just to use it on the phone?
         }else{
             if( mp_obj_is_type(args[ARG_template].u_obj, &addressable_fixtureObj_type) ){
-                addressable_fixture_obj_t template = *((addressable_fixture_obj_t*)args[ARG_template].u_obj); 
-                self->info = template.info;
+                
+                // todo: do I even want this template feature?
+                printf("Error: templates not currently supported\n");
+                return mp_const_none;
+                
+                // addressable_fixture_obj_t template = *((addressable_fixture_obj_t*)args[ARG_template].u_obj); 
+                // self->info = template.info;
 
-                if( mp_obj_is_str(args[ARG_name].u_obj) ){
-                    printf("name is '%s'\n", mp_obj_str_get_str(args[ARG_name].u_obj));
-                    self->info->name = (char*)mp_obj_str_get_str(args[ARG_name].u_obj);
-                }
+                // if( mp_obj_is_str(args[ARG_name].u_obj) ){
+                //     printf("name is '%s'\n", mp_obj_str_get_str(args[ARG_name].u_obj));
+                //     self->info->name = (char*)mp_obj_str_get_str(args[ARG_name].u_obj);
+                // }
 
             }else{
                 printf("Error: template fixture must be of fixture type\n");
@@ -222,7 +226,7 @@ STATIC void addressable_fixture_print( const mp_print_t *print, mp_obj_t self_in
     addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
     // print the number
     // printf ("Fixture class object with #leds = %d\n", self->info->leds);
-    printf ("Fixture class object:\n");
+    printf ("Fixture class object: ");
     dict_print(&mp_plat_print, addressable_fixture_get_dict( self_in, -1 ), kind);
 }
 
@@ -321,7 +325,7 @@ STATIC mp_obj_t addressable_fixture_layers(size_t n_args, const mp_obj_t *pos_ar
 STATIC mp_obj_t addressable_fixture_set(mp_obj_t self_in, mp_obj_t start_index_obj, mp_obj_t colors) {
     addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
-    if( self->info->protocol >= MODADD_PROTOCOLS_NUM ){
+    if( self->protocol >= MODADD_PROTOCOLS_NUM ){
         mp_raise_ValueError("Fixture protocol unknown, cannot set data\n");
         return mp_const_none;
     }
@@ -331,7 +335,7 @@ STATIC mp_obj_t addressable_fixture_set(mp_obj_t self_in, mp_obj_t start_index_o
 
     // printf("index = %d\n", index);
 
-    if( start_index >= self->info->leds ){ 
+    if( start_index >= self->leds ){ 
         mp_raise_ValueError("Index exceeds fixture LEDs\n"); 
         return mp_const_none;
     }
@@ -344,9 +348,9 @@ STATIC mp_obj_t addressable_fixture_set(mp_obj_t self_in, mp_obj_t start_index_o
         // printf("the number of colors supplied is: %d\n", colors_len);
         // printf("the address of the first color is: 0x%X\n", (uint32_t)colors_items);
 
-        const modadd_protocol_t* protocol = modadd_protocols[self->info->protocol];
+        const modadd_protocol_t* protocol = modadd_protocols[self->protocol];
         uint8_t     bpl = protocol->bpl;
-        uint8_t*    base = self->info->data;
+        uint8_t*    base = self->data;
 
         // printf("base address for this fixture = 0x%X\n", (uint32_t)base );
 
@@ -359,7 +363,7 @@ STATIC mp_obj_t addressable_fixture_set(mp_obj_t self_in, mp_obj_t start_index_o
                 
 
                 uint32_t index = color_ind + start_index;
-                if( index >= (self->info->leds) ){ break; } // don't write into other fixture's memory!
+                if( index >= (self->leds) ){ break; } // don't write into other fixture's memory!
 
                 if( ( base == NULL ) ){ mp_raise_ValueError("There is no memory for this fixture - try adding the fixture to an output string\n"); }
                 if( color_len < bpl ){
@@ -395,11 +399,11 @@ STATIC mp_obj_t addressable_fixture_set(mp_obj_t self_in, mp_obj_t start_index_o
 mp_obj_t addressable_fixture_artnet(mp_obj_t self_in, mp_obj_t bright ){
     addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
-    const modadd_protocol_t* protocol = modadd_protocols[self->info->protocol];
+    const modadd_protocol_t* protocol = modadd_protocols[self->protocol];
     uint8_t     bpl = protocol->bpl;
     
-    uint32_t fixture_leds = self->info->leds;
-    uint8_t*    base = self->info->data;
+    uint32_t fixture_leds = self->leds;
+    uint8_t*    base = self->data;
     uint32_t artnet_ind = 0;
     uint8_t color_arry[8];
 
@@ -451,10 +455,10 @@ mp_obj_t addressable_fixture_artnet(mp_obj_t self_in, mp_obj_t bright ){
         //     *(location) |= protocol->or_mask[component_ind];            // set mask
         // }
 
-        self->info->data[led_ind*4 + 0] = 0xE0 | global;                             // todo: handle universes and follow the protocol of the given fixture
-        self->info->data[led_ind*4 + 1] = artnet_packet.Data[(artnet_ind*3)+0];
-        self->info->data[led_ind*4 + 2] = artnet_packet.Data[(artnet_ind*3)+1];
-        self->info->data[led_ind*4 + 3] = artnet_packet.Data[(artnet_ind*3)+2];
+        self->data[led_ind*4 + 0] = 0xE0 | global;                             // todo: handle universes and follow the protocol of the given fixture
+        self->data[led_ind*4 + 1] = artnet_packet.Data[(artnet_ind*3)+0];
+        self->data[led_ind*4 + 2] = artnet_packet.Data[(artnet_ind*3)+1];
+        self->data[led_ind*4 + 3] = artnet_packet.Data[(artnet_ind*3)+2];
 
         artnet_ind++;
 
@@ -488,65 +492,108 @@ void modadd_fixture_foreach(modadd_fixture_iter_t head, void (*f)(modadd_fixture
     }
 }
 
+modadd_ctrl_t* modadd_fixture_get_ctrl( modadd_fixture_node_t* base ){
+    addressable_fixture_obj_t* fixture = (addressable_fixture_obj_t*)base->fixture;
+    return fixture->ctrl;
+}
+
 // fixture linked list manipulation
-modadd_fixture_t* modadd_new_fixture_node( void ){
-    modadd_fixture_t* node = NULL;
-    node = (modadd_fixture_t*)MODADD_MALLOC(1*sizeof(modadd_fixture_t));
+modadd_fixture_node_t* modadd_new_fixture_node( void ){
+    modadd_fixture_node_t* node = NULL;
+    node = (modadd_fixture_node_t*)MODADD_MALLOC(1*sizeof(modadd_fixture_node_t));
     if(node == NULL){ return node; }
-    memset((void*)node, 0x00, sizeof(modadd_fixture_t));
+    memset((void*)node, 0x00, sizeof(modadd_fixture_node_t));
     return node;
 }
 
-modadd_fixture_t* modadd_fixture_predecessor( modadd_fixture_t* successor, modadd_ctrl_t* ctrl ){
-    if( ctrl == NULL ){ return NULL; }
-    if( successor == ctrl->fixture_ctrl.head ){ return NULL; }
+modadd_fixture_node_t* modadd_fixture_predecessor( modadd_fixture_node_t* successor, modadd_fixture_node_t* base ){
+    if( base == NULL ){ return NULL; }
+    if( successor == base ){ return NULL; }
     modadd_fixture_iter_t iter = NULL;
-    for( iter = modadd_fixture_iter_first(MODADD_ITER_FROM_FIXTURE_PTR(ctrl->fixture_ctrl.head)); !modadd_fixture_iter_done(iter); iter = modadd_fixture_iter_next(iter) ){
+    for( iter = modadd_fixture_iter_first(MODADD_ITER_FROM_FIXTURE_PTR(base)); !modadd_fixture_iter_done(iter); iter = modadd_fixture_iter_next(iter) ){
         if( MODADD_FIXTURE_PTR_FROM_ITER(iter)->next == successor ){ break; }
     }
     return MODADD_FIXTURE_PTR_FROM_ITER(iter);
 }
 
-modadd_fixture_t* modadd_fixture_tail( modadd_ctrl_t* ctrl ){
-    return modadd_fixture_predecessor( NULL, ctrl );
+modadd_fixture_node_t* modadd_fixture_tail( modadd_fixture_node_t* base ){
+    return modadd_fixture_predecessor( NULL, base );
 }
 
-modadd_status_e modadd_fixture_append( modadd_fixture_t* node, modadd_ctrl_t* ctrl ){
+modadd_status_e modadd_fixture_append_node( modadd_fixture_node_t* node, modadd_fixture_node_t* base ){
     if( node == NULL ){ return MODADD_STAT_ERR; }
-    if( ctrl == NULL ){ return MODADD_STAT_ERR; }
-
-    node->next = NULL;
-    if( ctrl->fixture_ctrl.head == NULL ){
-        ctrl->fixture_ctrl.head = node;
-    }else{
-        modadd_fixture_t* tail = modadd_fixture_tail( ctrl );
-        if(tail == NULL){ return MODADD_STAT_ERR; }
-        tail->next = node;
-    }
+    if( base == NULL ){ return MODADD_STAT_ERR; }
+    modadd_fixture_node_t* tail = modadd_fixture_tail( base );
+    if(tail == NULL){ return MODADD_STAT_ERR; }
+    tail->next = node;
     // Removed recomputation from the append function to avoid memory fragmentation. Need to call manually when all desired fixtures are added
     return MODADD_STAT_OK;
 }
 
-modadd_fixture_t* modadd_fixture_append_new( modadd_ctrl_t* ctrl ){
-    modadd_fixture_t* node = NULL;
+modadd_fixture_node_t* modadd_fixture_append_new_node( modadd_fixture_node_t* base ){
+    modadd_fixture_node_t* node = NULL;
     node = modadd_new_fixture_node();
     if( node == NULL ){ return NULL; } // no heap
-    modadd_fixture_append( node, ctrl );
+    modadd_fixture_append_node( node, base );
     return node;
 }
 
-modadd_status_e modadd_fixture_remove( modadd_fixture_t* node, modadd_ctrl_t* ctrl ){
-    modadd_fixture_t* predecessor = modadd_fixture_predecessor(node, ctrl);
+modadd_status_e modadd_fixture_remove_node( modadd_fixture_node_t* node, modadd_fixture_node_t* base ){
+    if( base == NULL ){ return MODADD_STAT_ERR; }
+    modadd_fixture_node_t* predecessor = modadd_fixture_predecessor(node, base );
     if( predecessor == NULL ){ return MODADD_STAT_ERR; }
-    modadd_fixture_t* successor = NULL;
+    modadd_fixture_node_t* successor = NULL;
     successor = node->next;
     predecessor->next = successor;
+    MODADD_FREE(node->fixture);
     MODADD_FREE(node);
-    modadd_ctrl_recompute_fixtures( ctrl ); // ok to recompute after a removal, b/c memory requirements will not increase
+    modadd_ctrl_recompute_fixtures( modadd_fixture_get_ctrl( base ) ); // ok to recompute after a removal, b/c memory requirements will not increase
     return MODADD_STAT_OK;
 }
 
 
+modadd_status_e modadd_fixture_append( addressable_fixture_obj_t* fixture, modadd_ctrl_t* ctrl ){
+    if( fixture == NULL ){ return MODADD_STAT_ERR; }
+    if( ctrl == NULL ){ return MODADD_STAT_ERR; }
+
+    modadd_fixture_node_t* node = NULL;
+    if( ctrl->fixture_ctrl.head == NULL ){
+        node = modadd_new_fixture_node();
+        ctrl->fixture_ctrl.head = node;
+    }else{
+        node = modadd_fixture_append_new_node( ctrl->fixture_ctrl.head );
+    }
+    if( node == NULL ){ return MODADD_STAT_ERR; } // no heap
+    node->fixture = fixture;
+    return MODADD_STAT_OK;
+}
+
+modadd_status_e modadd_fixture_remove( addressable_fixture_obj_t* fixture, modadd_ctrl_t* ctrl ){
+    modadd_fixture_iter_t iter = NULL;
+    modadd_fixture_node_t* base = ctrl->fixture_ctrl.head;
+    for( iter = modadd_fixture_iter_first(MODADD_ITER_FROM_FIXTURE_PTR(base)); !modadd_fixture_iter_done(iter); iter = modadd_fixture_iter_next(iter) ){
+        if( MODADD_FIXTURE_PTR_FROM_ITER(iter)->fixture == fixture ){ break; }
+    }
+    modadd_fixture_node_t* node = MODADD_FIXTURE_PTR_FROM_ITER(iter);
+
+    modadd_fixture_node_t* predecessor = modadd_fixture_predecessor(node, base);
+    if( predecessor == NULL ){ return MODADD_STAT_ERR; }
+    modadd_fixture_node_t* successor = NULL;
+    successor = node->next;
+    predecessor->next = successor;
+    MODADD_FREE(node);
+    modadd_ctrl_recompute_fixtures( modadd_fixture_get_ctrl(base) ); // ok to recompute after a removal, b/c memory requirements will not increase
+    return MODADD_STAT_OK;
+}
+
+
+
+
+
+// modadd_fixture_copy_info( addressable_fixture_obj_t* dest, addressable_fixture_obj_t* source ){
+//     dest->id = source->id;
+//     dest->
+// }
 
 
 

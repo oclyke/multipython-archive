@@ -155,7 +155,7 @@ STATIC mp_obj_t addressable_controller_add_fixture(mp_obj_t self_in, mp_obj_t fi
     addressable_controller_obj_t *self = MP_OBJ_TO_PTR(self_in);
     addressable_fixture_obj_t* fixture = MP_OBJ_TO_PTR(fixture_obj);
 
-    if( self->info->output.protocol != fixture->info->protocol ){
+    if( self->info->output.protocol != fixture->protocol ){
         mp_raise_ValueError("Protocol mismatch, cannot add fixture\n");
         return mp_const_none;
     }
@@ -166,7 +166,8 @@ STATIC mp_obj_t addressable_controller_add_fixture(mp_obj_t self_in, mp_obj_t fi
     }
 
     // Append the fixture through the specified append function
-    modadd_status_e status = self->info->fixture_ctrl.append( fixture->info, self->info );
+    printf("add_fixture: fixture = 0x%8X, ctrl = 0x%8X\n", (uint32_t) fixture, (uint32_t)self->info );
+    modadd_status_e status = self->info->fixture_ctrl.append( fixture, self->info );
     if( status != MODADD_STAT_OK ){
         printf("Appending failed with code %d\n", status);
         return mp_const_none;
@@ -215,12 +216,7 @@ STATIC mp_obj_t addressable_controller_fixtures(size_t n_args, const mp_obj_t *p
             uint32_t desired_index = mp_obj_int_get_truncated( args[ARG_index].u_obj );
             for( iter = modadd_fixture_iter_first(MODADD_ITER_FROM_FIXTURE_PTR( self->info->fixture_ctrl.head )); !modadd_fixture_iter_done(iter); iter = modadd_fixture_iter_next(iter) ){
                 if( fixture_index == desired_index ){
-                    modadd_fixture_t* fixture = MODADD_FIXTURE_PTR_FROM_ITER( iter );
-                    mp_obj_t fix = addressable_fixture_make_new( &addressable_fixtureObj_type, 0, 0, NULL );
-                    addressable_fixture_obj_t* p_fix = MP_OBJ_TO_PTR(fix);
-                    p_fix->info = fixture;   // point to the same data
-                    // mp_obj_list_append(fixtures_list, addressable_fixture_get_dict( fix, fixture_index ) );
-                    //mp_obj_list_append(fixtures_list, fix );
+                    addressable_fixture_obj_t* fix = (addressable_fixture_obj_t*)MODADD_FIXTURE_PTR_FROM_ITER( iter )->fixture;
                     return fix;
                 }
                 fixture_index++;
@@ -240,13 +236,9 @@ STATIC mp_obj_t addressable_controller_fixtures(size_t n_args, const mp_obj_t *p
 
                     for( iter = modadd_fixture_iter_first(MODADD_ITER_FROM_FIXTURE_PTR( self->info->fixture_ctrl.head )); !modadd_fixture_iter_done(iter); iter = modadd_fixture_iter_next(iter) ){
                         if( fixture_index == desired_index ){
-                            modadd_fixture_t* fixture = MODADD_FIXTURE_PTR_FROM_ITER( iter );
-                            mp_obj_t fix = addressable_fixture_make_new( &addressable_fixtureObj_type, 0, 0, NULL );
+                            addressable_fixture_obj_t* fix = (addressable_fixture_obj_t*)MODADD_FIXTURE_PTR_FROM_ITER( iter )->fixture;
                             if( mp_obj_is_type( fix, &addressable_fixtureObj_type ) ){
-                                addressable_fixture_obj_t* p_fix = MP_OBJ_TO_PTR(fix);
-                                p_fix->info = fixture;   // point to the same data
-                                // mp_obj_list_append(fixtures_list, addressable_fixture_get_dict( fix, fixture_index ) );
-                                mp_obj_list_append(fixtures_list, fix );
+                                mp_obj_list_append(fixtures_list, (mp_obj_t)fix );
                             }
                         }
                         fixture_index++;
@@ -261,12 +253,10 @@ STATIC mp_obj_t addressable_controller_fixtures(size_t n_args, const mp_obj_t *p
 
         uint32_t count = 0;
         for( iter = modadd_fixture_iter_first(MODADD_ITER_FROM_FIXTURE_PTR( self->info->fixture_ctrl.head )); !modadd_fixture_iter_done(iter); iter = modadd_fixture_iter_next(iter) ){
-            modadd_fixture_t* fixture = MODADD_FIXTURE_PTR_FROM_ITER( iter );
-            mp_obj_t fix = addressable_fixture_make_new( &addressable_fixtureObj_type, 0, 0, NULL );
-            addressable_fixture_obj_t* p_fix = MP_OBJ_TO_PTR(fix);
-            p_fix->info = fixture;   // point to the same data
-            // mp_obj_list_append(fixtures_list, addressable_fixture_get_dict( fix, count ) ); // oops! this is what you'd do if you wanted the information about the fixture. but we want the real deal!
-            mp_obj_list_append(fixtures_list, fix );
+            addressable_fixture_obj_t* fix = (addressable_fixture_obj_t*)MODADD_FIXTURE_PTR_FROM_ITER( iter )->fixture;
+            if( mp_obj_is_type( fix, &addressable_fixtureObj_type ) ){
+                mp_obj_list_append(fixtures_list, (mp_obj_t)fix );
+            }
             count++;
         }
     }
@@ -390,19 +380,20 @@ typedef struct _modadd_fixture_recomputation_struct_t{
 
 void modadd_fixture_count_leds(modadd_fixture_iter_t iter, void* args){
     modadd_fixture_recomputation_struct_t* recomp = (modadd_fixture_recomputation_struct_t*)args;
-    if( modadd_protocols[MODADD_FIXTURE_PTR_FROM_ITER(iter)->protocol] != recomp->protocol ){
+    addressable_fixture_obj_t* fixture = (addressable_fixture_obj_t*)MODADD_FIXTURE_PTR_FROM_ITER(iter)->fixture;
+    if( modadd_protocols[fixture->protocol] != recomp->protocol ){
         printf("Fixture protocol differs from output protocol! Fixture at 0x%X\n", (uint32_t)MODADD_FIXTURE_PTR_FROM_ITER(iter) );
         recomp->protocol_ok = false;
     }
-    recomp->total_leds += (MODADD_FIXTURE_PTR_FROM_ITER(iter)->leds);
+    recomp->total_leds += (fixture->leds);
 }
 
 void modadd_fixture_recomputation(modadd_fixture_iter_t iter, void* args){
     modadd_fixture_recomputation_struct_t* recomp = (modadd_fixture_recomputation_struct_t*)args;
-
-    MODADD_FIXTURE_PTR_FROM_ITER(iter)->data = recomp->data;
-    MODADD_FIXTURE_PTR_FROM_ITER(iter)->ctrl = recomp->ctrl;
-    recomp->data += ((MODADD_FIXTURE_PTR_FROM_ITER(iter)->leds) * recomp->protocol->bpl);
+    addressable_fixture_obj_t* fixture = (addressable_fixture_obj_t*)MODADD_FIXTURE_PTR_FROM_ITER(iter)->fixture;
+    fixture->data = recomp->data;
+    fixture->ctrl = recomp->ctrl;
+    recomp->data += ((fixture->leds) * recomp->protocol->bpl);
     // recomp
 }
 

@@ -32,10 +32,13 @@ extern const mp_obj_type_t addressable_layerObj_type;
 
 // this is the actual C-structure for our new object
 typedef struct _addressable_layer_obj_t {
-    mp_obj_base_t   base;       // base represents some basic information, like type
-    mp_obj_t        fixture;    // the fixture that this layer is associated with
-    uint8_t*        data;       // the data for the layer
+    mp_obj_base_t                   base;       // base represents some basic information, like type
+    mp_obj_t                        fixture;    // the fixture that this layer is associated with
+    volatile modadd_operations_e    op;         // defines how the layer is combined with the one before it
+    uint8_t*                        data;       // the data for the layer
 }addressable_layer_obj_t;
+
+IRAM_ATTR void addressable_layer_compose(void* arg); // arg should be a pointer to the output controller
 
 typedef modadd_layer_node_t* modadd_layer_iter_t;
 modadd_layer_iter_t modadd_layer_iter_first( modadd_layer_iter_t head );

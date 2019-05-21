@@ -25,51 +25,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 modadd_status_e modadd_output_initialize( modadd_ctrl_t* ctrl ){
     if( ctrl == NULL ){ return MODADD_STAT_ERR; }
     if( ctrl->output.is_initialized ){ return MODADD_STAT_ERR; }
@@ -78,6 +33,13 @@ modadd_status_e modadd_output_initialize( modadd_ctrl_t* ctrl ){
     return ret;
 }
 
+modadd_status_e modadd_output_compose( modadd_ctrl_t* ctrl ){ // 
+    if( ctrl == NULL ){ return MODADD_STAT_ERR; }
+    if( ctrl->output.is_initialized ){ return MODADD_STAT_ERR; }
+    if( ctrl->output.init == NULL ){ return MODADD_STAT_ERR; }
+    modadd_status_e ret = ctrl->output.init( ctrl ); // call the proper init function for this output
+    return ret;
+}
 
 
 modadd_status_e mach1_output_init_apa102_hw( modadd_ctrl_t* ctrl ){
@@ -152,29 +114,21 @@ modadd_status_e mach1_output_init_apa102_sw( modadd_ctrl_t* ctrl ){
 
 
 
+
+
+
+
+
+
+
 IRAM_ATTR void mach1_output_apa102_hw(void* arg){
     esp_err_t ret;
     modadd_ctrl_t* ctrl = (modadd_ctrl_t*)arg;                              // cast argument to control structure pointer
     modadd_port_spi_t* spi_port = (modadd_port_spi_t*)ctrl->output.port;
 
-    // spi_transaction_t *rtrans;
-    // ret=spi_device_get_trans_result(spi_port->handle, &rtrans, portMAX_DELAY);
-    // if( ret != ESP_OK ){
-    //     printf("error waiting for transfer to finish\n");
-    // }
-
     memset(&(spi_port->transfer), 0, sizeof(spi_transaction_t));
     spi_port->transfer.length = 8*(ctrl->fixture_ctrl.data_len);
     spi_port->transfer.tx_buffer = (void*)ctrl->fixture_ctrl.data;
-
-    // printf("data length (bits): %d\n", spi_port->transfer.length);
-    // printf("transfer buffer 0x%X", (uint32_t)spi_port->transfer.tx_buffer );
-    // while(1){
-    //     printf("halting, just for fun\n");
-    //     vTaskDelay(10000/portTICK_PERIOD_MS);
-    // }
-
-    // printf("starting a transmission with %d bits from address 0x%X\n", spi_port->transfer.length, (uint32_t)spi_port->transfer.tx_buffer);
 
     // queue a transaction
     ret=spi_device_queue_trans(spi_port->handle, &(spi_port->transfer), portMAX_DELAY);

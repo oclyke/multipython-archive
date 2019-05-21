@@ -26,14 +26,30 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////
 /* MicroPython Fixture Class                                              */
 ////////////////////////////////////////////////////////////////////////////
-// STATIC mp_obj_t addressable_layer_set(mp_obj_t self_in, mp_obj_t index, mp_obj_t rgb);
-// MP_DEFINE_CONST_FUN_OBJ_3(addressable_layer_set_obj, addressable_layer_set);
+
+STATIC mp_obj_t addressable_layer_mode(mp_obj_t self_in, mp_obj_t mode);
+MP_DEFINE_CONST_FUN_OBJ_2(addressable_layer_mode_obj, addressable_layer_mode);
+
+STATIC mp_obj_t addressable_layer_set(mp_obj_t self_in, mp_obj_t start_index_obj, mp_obj_t colors);
+MP_DEFINE_CONST_FUN_OBJ_3(addressable_layer_set_obj, addressable_layer_set);
 
 STATIC void addressable_layer_print( const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind );
 
 STATIC const mp_rom_map_elem_t addressable_layer_locals_dict_table[] = {
-    // { MP_ROM_QSTR(MP_QSTR_set), MP_ROM_PTR(&addressable_layer_set_obj) },
+    { MP_ROM_QSTR(MP_QSTR_mode), MP_ROM_PTR(&addressable_layer_mode_obj) },
+    { MP_ROM_QSTR(MP_QSTR_set), MP_ROM_PTR(&addressable_layer_set_obj) },
+    
     // { MP_ROM_QSTR(MP_QSTR_artnet), MP_ROM_PTR(&addressable_fixture_artnet_obj) },
+
+    { MP_ROM_QSTR(MP_QSTR_SKIP), MP_ROM_INT(MODADD_OP_SKIP) },
+    { MP_ROM_QSTR(MP_QSTR_SET), MP_ROM_INT(MODADD_OP_SET) },
+    { MP_ROM_QSTR(MP_QSTR_OR), MP_ROM_INT(MODADD_OP_OR) },
+    { MP_ROM_QSTR(MP_QSTR_AND), MP_ROM_INT(MODADD_OP_AND) },
+    { MP_ROM_QSTR(MP_QSTR_XOR), MP_ROM_INT(MODADD_OP_XOR) },
+    { MP_ROM_QSTR(MP_QSTR_MULT), MP_ROM_INT(MODADD_OP_MULT) },
+    { MP_ROM_QSTR(MP_QSTR_DIV), MP_ROM_INT(MODADD_OP_DIV) },
+    { MP_ROM_QSTR(MP_QSTR_ADD), MP_ROM_INT(MODADD_OP_ADD) },
+    { MP_ROM_QSTR(MP_QSTR_SUB), MP_ROM_INT(MODADD_OP_SUB) },
  };
 STATIC MP_DEFINE_CONST_DICT(addressable_layer_locals_dict, addressable_layer_locals_dict_table);
 
@@ -74,9 +90,10 @@ mp_obj_t addressable_layer_make_new( const mp_obj_type_t *type, size_t n_args, s
         return mp_const_none;
     }
     addressable_fixture_obj_t* fixture = (addressable_fixture_obj_t*)MP_OBJ_TO_PTR(args[ARG_fixture].u_obj); // extract the fixture type
-    const modadd_protocol_t*    protocol = modadd_protocols[fixture->info->protocol];
-    uint8_t                     bpl = protocol->bpl;
-    uint32_t len = fixture->info->leds * bpl; // determine the length of the layer data
+    // const modadd_protocol_t*    protocol = modadd_protocols[fixture->protocol];
+    // uint8_t                     bpl = protocol->bpl;
+    // uint32_t len = fixture->leds * bpl; // determine the length of the layer data
+    uint32_t len = fixture->leds * MODADD_BPL; // determine the length of the layer data - now using standard 4 bytes per pixel, bpl is only relevant in context of an output protocol
     
     // Try to allocate enough memory for the data
     uint8_t* data = NULL;
@@ -85,6 +102,7 @@ mp_obj_t addressable_layer_make_new( const mp_obj_type_t *type, size_t n_args, s
         mp_raise_OSError(MP_ENOMEM);
         return mp_const_none;
     }
+    memset(data, 0x00, len);
 
     // create a new object of our C-struct type
     addressable_layer_obj_t *self;
@@ -103,12 +121,275 @@ STATIC void addressable_layer_print( const mp_print_t *print, mp_obj_t self_in, 
     addressable_fixture_obj_t* fixture = (addressable_fixture_obj_t*)self->fixture;
 
     // printf ("Layer class object with data at address = %d\n", (uint32_t)self->data);
-    printf ("Layer class object for fixture id = %d\n", (uint32_t)fixture->info->id );
+    printf ("Layer class object with mode = %d\n", (uint32_t)self->op );
+}
+
+
+STATIC mp_obj_t addressable_layer_mode(mp_obj_t self_in, mp_obj_t mode){
+    addressable_layer_obj_t* self = (addressable_layer_obj_t*)MP_OBJ_TO_PTR(self_in);
+    if(! mp_obj_is_int( mode )){ return mp_const_none; }
+    self->op = (modadd_operations_e)mp_obj_get_int(mode);
+    return mp_const_none;
+}
+
+STATIC mp_obj_t addressable_layer_set(mp_obj_t self_in, mp_obj_t start_index_obj, mp_obj_t colors) {
+    addressable_layer_obj_t *self = (addressable_layer_obj_t*)MP_OBJ_TO_PTR(self_in);
+    addressable_fixture_obj_t* fixture = (addressable_fixture_obj_t*)self->fixture;
+
+    mp_int_t start_index;
+    mp_obj_get_int_maybe( start_index_obj, &start_index );
+
+    if( start_index >= fixture->leds ){ 
+        mp_raise_ValueError("Index exceeds fixture LEDs\n"); 
+        return mp_const_none;
+    }
+
+    if( mp_obj_is_type( colors, &mp_type_list) ){
+        size_t colors_len;
+        mp_obj_t* colors_items;
+        mp_obj_list_get(colors, &colors_len, &colors_items);
+
+        // printf("the number of colors supplied is: %d\n", colors_len);
+        // printf("the address of the first color is: 0x%X\n", (uint32_t)colors_items);
+
+        // const modadd_protocol_t* protocol = modadd_protocols[fixture->protocol];
+        // uint8_t     bpl = protocol->bpl;
+        uint8_t*    base = self->data;
+
+        // printf("base address for this fixture = 0x%X\n", (uint32_t)base );
+
+        for(size_t color_ind = 0; color_ind < colors_len; color_ind++){
+            if( mp_obj_is_type( colors_items[color_ind], &mp_type_list) ){
+                size_t color_len;
+                mp_obj_t* color_components;
+                mp_obj_list_get(colors_items[color_ind], &color_len, &color_components);
+
+                size_t index = color_ind + start_index;
+                if( index >= (fixture->leds) ){ break; } // don't write into other fixture's memory!
+
+                if( ( base == NULL ) ){ mp_raise_ValueError("There is no memory for this layer\n"); }
+                if( color_len != MODADD_BPL ){
+                    mp_raise_ValueError("Too few color elements for this protocol\n");
+                    return mp_const_none;
+                }
+
+                for( uint8_t component_ind = 0; component_ind < MODADD_BPL; component_ind++ ){
+                    mp_int_t val;
+                    mp_obj_get_int_maybe( (color_components[component_ind]), &val );
+                    uint8_t* location = base + ((index)*MODADD_BPL) + component_ind;
+
+                    *(location) = (uint8_t)val;                         // set value
+                }
+            }else{
+                mp_raise_TypeError("Elements of 'colors' should be lists of integers\n");
+            }
+        }
+    }else{
+        mp_raise_TypeError("color should be a list of lists of integers\n");
+        return mp_const_none;
+    }
+
+    return mp_const_none;
 }
 
 
 
 
+// compose layers - for efficiency this function will operate in the context of the output protocol
+typedef void (*addressable_composer_f)(addressable_fixture_obj_t* fixture, addressable_layer_obj_t* layer);
+
+IRAM_ATTR static void addressable_composer_SET(addressable_fixture_obj_t* fixture, addressable_layer_obj_t* layer){
+    modadd_protocols_e  proto = fixture->ctrl->output.protocol; // using the output's protocol because we operate in the output's domain here
+    const modadd_protocol_t*  protocol = modadd_protocols[proto];
+    uint8_t             bpl = protocol->bpl;
+    uint8_t*            dst = fixture->data;
+    uint8_t*            src = layer->data;
+
+    for(size_t led = 0; led < fixture->leds; led++){            // Loop over all leds
+        for(size_t channel = 0; channel < bpl; channel++){      // Loop over applicable channels (e.g. [R,G,B,A])
+            // Map the layer [RGBA] data onto the output data [protocol dependent] and apply the specified operation
+            *(dst + (bpl * led) + channel) = *(src + (bpl * led) + protocol->indices[channel]);
+        }
+    }
+};
+IRAM_ATTR static void addressable_composer_OR(addressable_fixture_obj_t* fixture, addressable_layer_obj_t* layer){
+    modadd_protocols_e  proto = fixture->ctrl->output.protocol; // using the output's protocol because we operate in the output's domain here
+    const modadd_protocol_t*  protocol = modadd_protocols[proto];
+    uint8_t             bpl = protocol->bpl;
+    uint8_t*            dst = fixture->data;
+    uint8_t*            src = layer->data;
+
+    for(size_t led = 0; led < fixture->leds; led++){            // Loop over all leds
+        for(size_t channel = 0; channel < bpl; channel++){      // Loop over applicable channels (e.g. [R,G,B,A])
+            // Map the layer [RGBA] data onto the output data [protocol dependent] and apply the specified operation
+            *(dst + (bpl * led) + channel) |= *(src + (bpl * led) + protocol->indices[channel]);
+        }
+    }
+};
+IRAM_ATTR static void addressable_composer_AND(addressable_fixture_obj_t* fixture, addressable_layer_obj_t* layer){
+    modadd_protocols_e  proto = fixture->ctrl->output.protocol; // using the output's protocol because we operate in the output's domain here
+    const modadd_protocol_t*  protocol = modadd_protocols[proto];
+    uint8_t             bpl = protocol->bpl;
+    uint8_t*            dst = fixture->data;
+    uint8_t*            src = layer->data;
+
+    for(size_t led = 0; led < fixture->leds; led++){            // Loop over all leds
+        for(size_t channel = 0; channel < bpl; channel++){      // Loop over applicable channels (e.g. [R,G,B,A])
+            // Map the layer [RGBA] data onto the output data [protocol dependent] and apply the specified operation
+            *(dst + (bpl * led) + channel) &= *(src + (bpl * led) + protocol->indices[channel]);
+        }
+    }
+};
+IRAM_ATTR static void addressable_composer_XOR(addressable_fixture_obj_t* fixture, addressable_layer_obj_t* layer){
+    modadd_protocols_e  proto = fixture->ctrl->output.protocol; // using the output's protocol because we operate in the output's domain here
+    const modadd_protocol_t*  protocol = modadd_protocols[proto];
+    uint8_t             bpl = protocol->bpl;
+    uint8_t*            dst = fixture->data;
+    uint8_t*            src = layer->data;
+
+    for(size_t led = 0; led < fixture->leds; led++){            // Loop over all leds
+        for(size_t channel = 0; channel < bpl; channel++){      // Loop over applicable channels (e.g. [R,G,B,A])
+            // Map the layer [RGBA] data onto the output data [protocol dependent] and apply the specified operation
+            *(dst + (bpl * led) + channel) ^= *(src + (bpl * led) + protocol->indices[channel]);
+        }
+    }
+};
+IRAM_ATTR static void addressable_composer_MULT(addressable_fixture_obj_t* fixture, addressable_layer_obj_t* layer){
+    modadd_protocols_e  proto = fixture->ctrl->output.protocol; // using the output's protocol because we operate in the output's domain here
+    const modadd_protocol_t*  protocol = modadd_protocols[proto];
+    uint8_t             bpl = protocol->bpl;
+    uint8_t*            dst = fixture->data;
+    uint8_t*            src = layer->data;
+
+    for(size_t led = 0; led < fixture->leds; led++){            // Loop over all leds
+        for(size_t channel = 0; channel < bpl; channel++){      // Loop over applicable channels (e.g. [R,G,B,A])
+            // Map the layer [RGBA] data onto the output data [protocol dependent] and apply the specified operation
+            *(dst + (bpl * led) + channel) *= *(src + (bpl * led) + protocol->indices[channel]);
+        }
+    }
+};
+IRAM_ATTR static void addressable_composer_DIV(addressable_fixture_obj_t* fixture, addressable_layer_obj_t* layer){
+    modadd_protocols_e  proto = fixture->ctrl->output.protocol; // using the output's protocol because we operate in the output's domain here
+    const modadd_protocol_t*  protocol = modadd_protocols[proto];
+    uint8_t             bpl = protocol->bpl;
+    uint8_t*            dst = fixture->data;
+    uint8_t*            src = layer->data;
+
+    for(size_t led = 0; led < fixture->leds; led++){            // Loop over all leds
+        for(size_t channel = 0; channel < bpl; channel++){      // Loop over applicable channels (e.g. [R,G,B,A])
+            // Map the layer [RGBA] data onto the output data [protocol dependent] and apply the specified operation
+            *(dst + (bpl * led) + channel) /= *(src + (bpl * led) + protocol->indices[channel]);
+        }
+    }
+};
+IRAM_ATTR static void addressable_composer_ADD(addressable_fixture_obj_t* fixture, addressable_layer_obj_t* layer){
+    modadd_protocols_e  proto = fixture->ctrl->output.protocol; // using the output's protocol because we operate in the output's domain here
+    const modadd_protocol_t*  protocol = modadd_protocols[proto];
+    uint8_t             bpl = protocol->bpl;
+    uint8_t*            dst = fixture->data;
+    uint8_t*            src = layer->data;
+
+    for(size_t led = 0; led < fixture->leds; led++){            // Loop over all leds
+        for(size_t channel = 0; channel < bpl; channel++){      // Loop over applicable channels (e.g. [R,G,B,A])
+            // Map the layer [RGBA] data onto the output data [protocol dependent] and apply the specified operation
+            *(dst + (bpl * led) + channel) += *(src + (bpl * led) + protocol->indices[channel]);
+        }
+    }
+};
+IRAM_ATTR static void addressable_composer_SUB(addressable_fixture_obj_t* fixture, addressable_layer_obj_t* layer){
+    modadd_protocols_e  proto = fixture->ctrl->output.protocol; // using the output's protocol because we operate in the output's domain here
+    const modadd_protocol_t*  protocol = modadd_protocols[proto];
+    uint8_t             bpl = protocol->bpl;
+    uint8_t*            dst = fixture->data;
+    uint8_t*            src = layer->data;
+
+    for(size_t led = 0; led < fixture->leds; led++){            // Loop over all leds
+        for(size_t channel = 0; channel < bpl; channel++){      // Loop over applicable channels (e.g. [R,G,B,A])
+            // Map the layer [RGBA] data onto the output data [protocol dependent] and apply the specified operation
+            *(dst + (bpl * led) + channel) -= *(src + (bpl * led) + protocol->indices[channel]);
+        }
+    }
+};
+
+IRAM_ATTR void addressable_composer_enforce_protocol_data(addressable_fixture_obj_t* fixture){
+    modadd_protocols_e  proto = fixture->ctrl->output.protocol; // using the output's protocol because we operate in the output's domain here
+    const modadd_protocol_t*  protocol = modadd_protocols[proto];
+    uint8_t             bpl = protocol->bpl;
+    uint8_t*            dst = fixture->data;
+
+    // for now protocol enforcement only deals with data, not leading or trailing byte sequences. todo: consider a general method to enforce leading/trailing byte sequences
+    uint8_t*            write_head = fixture->data;
+    for(size_t led = 0; led < fixture->leds; led++){
+        for(size_t channel = 0; channel < bpl; channel++){      // Loop over applicable channels (e.g. [R,G,B,A])
+            *(dst + (bpl * led) + channel) |= protocol->or_mask[channel];    // set mask
+        } 
+    }
+    // protocol enforcement todo: enforce trailing sequences
+}
+
+IRAM_ATTR void addressable_layer_compose(void* arg){
+    modadd_ctrl_t* ctrl = (modadd_ctrl_t*)arg;
+
+    addressable_fixture_obj_t* fixture = NULL;
+    modadd_fixture_iter_t fiter = NULL;
+
+    addressable_layer_obj_t* layer = NULL;
+    modadd_layer_iter_t liter = NULL;
+    modadd_operations_e op = MODADD_OP_NUM;
+
+    addressable_composer_f composer = NULL;
+    
+
+    if(ctrl->fixture_ctrl.head == NULL){ return; } // bail early if there are no fixtures
+    if(ctrl->fixture_ctrl.data == NULL){ return; } // also bail if there is no output data to work with
+    if(ctrl->fixture_ctrl.data_len == 0){ return; }
+
+    // Otherwise... iterate over fixtures linked list 
+    
+    for( fiter = modadd_fixture_iter_first(MODADD_ITER_FROM_FIXTURE_PTR(ctrl->fixture_ctrl.head)); !modadd_fixture_iter_done(fiter); fiter = modadd_fixture_iter_next(fiter) ){
+        fixture = (addressable_fixture_obj_t*)MODADD_FIXTURE_PTR_FROM_ITER(fiter)->fixture;
+
+        if( fixture == NULL ){ continue; } // a few scenarios (which should rarely happen) that prompt us to skip this fixture
+        if( fixture->layers == NULL ){ continue; }
+        if( fixture->data == NULL ){ continue; }
+        if( fixture->leds == 0 ){ continue; }
+
+        // For each layer in the fixture use the specified operation to combine with the output data
+        for( liter = modadd_layer_iter_first(MODADD_ITER_FROM_LAYER_PTR( fixture->layers )); !modadd_layer_iter_done(liter); liter = modadd_layer_iter_next(liter) ){
+            layer = (addressable_layer_obj_t*)MODADD_LAYER_PTR_FROM_ITER(liter)->layer;
+            op = layer->op;
+            if( layer->data == NULL ){ continue; } // can't touch this layer if it has no data
+
+            if(op != MODADD_OP_NUM){ // MODADD_OP_NUM is entirely invalid, we will skip data in this layer 
+
+                switch( op ){
+                    case MODADD_OP_SET  : composer = addressable_composer_SET; break;
+                    case MODADD_OP_OR   : composer = addressable_composer_OR; break;
+                    case MODADD_OP_AND  : composer = addressable_composer_AND; break;
+                    case MODADD_OP_XOR  : composer = addressable_composer_XOR; break;
+                    case MODADD_OP_MULT : composer = addressable_composer_MULT; break;
+                    case MODADD_OP_DIV  : composer = addressable_composer_DIV; break;
+                    case MODADD_OP_ADD  : composer = addressable_composer_ADD; break;
+                    case MODADD_OP_SUB  : composer = addressable_composer_SUB; break;
+
+                    case MODADD_OP_SKIP :
+                    case MODADD_OP_NUM :
+                    default :
+                        composer = NULL;
+                        break;
+                }
+
+                if( composer != NULL ){
+                    composer( fixture, layer ); // call the composer
+                }
+            }
+        }
+        // After mixing all the channels we will perform protocol enforcement
+        addressable_composer_enforce_protocol_data(fixture);
+    }
+    // Once all fixtures have been mixed and had their data enforced we could perform leading/trailing sequence enforcement
+    // And after that the data is completely ready to send out!
+}
 
 
 

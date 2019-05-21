@@ -69,16 +69,21 @@ modadd_fixture_rot_t machone_stat_rot = {
     .r_theta = &machone_stat_rot_r_theta,
 };
 
-modadd_fixture_t machone_stat_fixture = {
+addressable_fixture_obj_t machone_stat_fixture_obj = {
+    .base = {
+        .type = &addressable_fixtureObj_type,
+    },
     .name = "MachOne Status LED",
     .id = 0x00,
     // .protocol = MODADD_PROTOCOL_APA102_SW,
     .leds = 1,
-    // .offset = 0,
-    .data = machone_stat_data + 4,
     .ctrl = NULL,
-    // .trans = &machone_stat_trans,
-    // .rot = &machone_stat_rot,
+    .data = machone_stat_data + 4,
+    .layers = NULL,
+};
+
+modadd_fixture_node_t machone_stat_fixture_node = {
+    .fixture = &machone_stat_fixture_obj,
     .next = NULL,
 };
 
@@ -101,7 +106,7 @@ modadd_ctrl_t mach1_stat_ctrl = {
         .port = &machone_stat_sw_port,
     },
     .fixture_ctrl = {
-        .head = &machone_stat_fixture,
+        .head = &machone_stat_fixture_node,
         .data = machone_stat_data,
         .data_len = MACHONE_STAT_DATA_BYTES,
         .size_increased = false,
@@ -111,8 +116,9 @@ modadd_ctrl_t mach1_stat_ctrl = {
 };
 
 
-void mach1_stat_output(void* arg){
-    mach1_output_apa102_sw( arg ); // arg should be a pointer to the stat output structure
+void mach1_stat_output(void* arg){  // arg should be a pointer to the stat output structure
+    addressable_layer_compose(arg);
+    mach1_output_apa102_sw( arg );
 }
 
 modadd_status_e mach1_stat_init( modadd_ctrl_t* ctrl ){
@@ -134,7 +140,8 @@ modadd_status_e mach1_stat_init( modadd_ctrl_t* ctrl ){
 #define MACH1_ALED_OUTPUT_CALLBACK mach1_aled_output
 #define MACH1_ALED_INIT_FN mach1_aled_init
 #define MACH1_ALED_TIMER_PERIOD (33333)
-#define MACH1_ALED_FREQ (10*1000*1000)
+// #define MACH1_ALED_FREQ (10*1000*1000)
+#define MACH1_ALED_FREQ (5*1000*1000)
 
 IRAM_ATTR static void mach1_aled_output(void* arg);
 modadd_status_e mach1_aled_init( modadd_ctrl_t* ctrl );
@@ -157,10 +164,9 @@ modadd_ctrl_t mach1_aled_ctrl = {
         // .timer,
         .status = MODADD_TIMER_STAT_NONE,
         .create_args = {
-            .callback = MACH1_ALED_OUTPUT_CALLBACK,   
+            .callback = MACH1_ALED_OUTPUT_CALLBACK,
+            // .callback_args = NULL,
         }
-        // .callback = MACH1_ALED_OUTPUT_CALLBACK,
-        // .callback_args = NULL,
     },
     .output = {
         .protocol = MODADD_PROTOCOL_UNKNOWN,
@@ -179,8 +185,9 @@ modadd_ctrl_t mach1_aled_ctrl = {
 };
 
 
-void mach1_aled_output(void* arg){
-    mach1_output_apa102_hw( arg ); // arg should be a pointer to the aled output structure
+void mach1_aled_output(void* arg){  // arg should be a pointer to the aled output structure
+    addressable_layer_compose(arg);
+    mach1_output_apa102_hw( arg );
 }
 
 modadd_status_e mach1_aled_init( modadd_ctrl_t* ctrl ){

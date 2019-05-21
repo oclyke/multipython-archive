@@ -144,6 +144,8 @@ STATIC mp_obj_t addressable_timer_period(size_t n_args, const mp_obj_t *pos_args
             mp_raise_TypeError("'period' must be an integer\n");
         }else{
             self->info->period = mp_obj_int_get_truncated( args[ARG_period].u_obj );
+            addressable_timer_stop(self);
+            addressable_timer_start(self);
         }
     }
 

@@ -62,7 +62,8 @@ and output will only be allocated:
 #define MODADD_MALLOC_DMA(size) heap_caps_malloc( size, MALLOC_CAP_DMA );
 #define MODADD_FREE(ptr) free(ptr)
 
-
+#define MODADD_BPL (4)  // All LED representations will use this number of bytes per pixel, unless in the specific context of an output buffer for a particular protocol
+                        // Similarly colors are always stored in [Red, Green, Blue, Alpha] format until placed into an output buffer
 void modadd_ctrl_recompute_fixtures( modadd_ctrl_t* ctrl );
 
 

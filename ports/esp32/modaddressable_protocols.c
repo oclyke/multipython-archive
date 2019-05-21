@@ -34,10 +34,10 @@ const modadd_protocol_t modadd_protocol_apa102 = {
     .indices = apa102_indices,
     .num_leading_const = 4,
     .num_leading_rate = 0,
-    .leading = apa102_leading,
+    // .leading = apa102_leading,
     .num_trailing_const = 0, 
     .num_trailing_rate = 16,
-    .trailing = NULL,
+    // .trailing = NULL,
 };
 
 const uint8_t ws2812_or_mask[] = { 0x00, 0x00, 0x00 };
@@ -48,10 +48,10 @@ const modadd_protocol_t modadd_protocol_ws2812 = {
     .indices = ws2812_indices,
     .num_leading_const = 5,   // ws2812 uses a reset code of 50 us, that's 40 bits at 1.25 us/bit, or 5 bytes. But the bytes should be all low, rather than the '0' code which has high and low portions
     .num_leading_rate = 0,
-    .leading = NULL,
+    // .leading = NULL,
     .num_trailing_const = 0, 
     .num_trailing_rate = 0,
-    .trailing = NULL,
+    // .trailing = NULL,
 };
 
 const modadd_protocol_t* modadd_protocols[MODADD_PROTOCOLS_NUM] = {

@@ -53,10 +53,15 @@ typedef enum {
 }modadd_controllers_e;
 
 typedef enum {
-    MODADD_OP_SET = 0x00,
+    MODADD_OP_SKIP = 0x00,
+    MODADD_OP_SET,
     MODADD_OP_OR,
     MODADD_OP_AND,
     MODADD_OP_XOR,
+    MODADD_OP_MULT,
+    MODADD_OP_DIV,
+    MODADD_OP_ADD,
+    MODADD_OP_SUB,
 
     MODADD_OP_NUM,
 }modadd_operations_e;
@@ -78,9 +83,6 @@ struct _moadd_layer_node_t{         // linked list of layers
 ///////////////////////////////////////////////////////////////////////////
 /* Fixture Types                                                         */
 ///////////////////////////////////////////////////////////////////////////
-
-#define MODADD_FIXTURE_PTR_FROM_ITER(iter) ((modadd_fixture_t*)iter)
-#define MODADD_ITER_FROM_FIXTURE_PTR(fptr) ((modadd_fixture_iter_t)fptr)
 
 typedef uint16_t modadd_fixt_id_t;
 typedef uint32_t modadd_fixt_offset_t;
@@ -112,36 +114,46 @@ typedef struct _modadd_protocol_t{
     const modadd_color_ind_e*   indices;            // array of length bpl that shows which color goes where (good for R, G, B, and A)
     const uint8_t               num_leading_rate;   // number of extra bytes needed to be sent per led in the strip (sent in pre xfer)
     const uint8_t               num_leading_const;  // constant length of leading bytes (that are sent ahead of any fixture data)
-    const uint8_t*              leading;            // the leading bytes to send, if any
+    // const uint8_t*              leading;            // the leading bytes to send, if any
     const uint8_t               num_trailing_rate;  // number of extra bytes needed to be sent per led in the strip (sent after led data)
     const uint8_t               num_trailing_const; // length of trailing bytes 
-    const uint8_t*              trailing;           // the trailing bytes to send, if any             
+    // const uint8_t*              trailing;           // the trailing bytes to send, if any             
 }modadd_protocol_t;
 
-typedef struct _modadd_fixture_ctrl_t modadd_fixture_ctrl_t;
-typedef struct _modadd_fixture_t {
-    char*                           name;
-    modadd_fixt_id_t                id;
-    modadd_protocols_e              protocol;
-    uint32_t                        leds;
+typedef struct _modadd_fixture_ctrl_t modadd_fixture_ctrl_t;    // forward declaration of fixture control type
+
+typedef struct _modadd_fixture_node_t modadd_fixture_node_t;
+struct _modadd_fixture_node_t{
+    mp_obj_t                fixture; // points at the micropython fixture object
+    modadd_fixture_node_t*  next;
+};
+typedef modadd_fixture_node_t* modadd_fixture_iter_t;
+
+#define MODADD_FIXTURE_PTR_FROM_ITER(iter) ((modadd_fixture_node_t*)iter)
+#define MODADD_ITER_FROM_FIXTURE_PTR(fptr) ((modadd_fixture_iter_t)fptr)
+
+// this is the actual C-structure for our new object
+typedef struct _addressable_fixture_obj_t {
+    mp_obj_base_t                   base;       // base represents some basic information, like type
+    char*                           name;       // name of this fixture
+    modadd_fixt_id_t                id;         // id of this fixture
+    modadd_protocols_e              protocol;   // protocol that this fixture is associated with
+    uint32_t                        leds;       // number of LEDs in this fixture
     modadd_ctrl_t*                  ctrl;   // pointer to the control structure that this fixture is associated with
     uint8_t*                        data;   // pointer to data for this fixture
     // modadd_fixture_trans_t*         trans;  // todo: reconsider storing rotation / translation data on the ESP32... maybe OK just to use it on the phone? Or maybe the 4 MB SRAM can justify it...
     // modadd_fixture_rot_t*           rot;
-    struct _modadd_fixture_t*       next;
-}modadd_fixture_t;
-typedef modadd_fixture_t* modadd_fixture_iter_t;
-
-
+    modadd_layer_node_t*    layers;     // linked list of layers associated with this fixture
+} addressable_fixture_obj_t;
 
 
 ///////////////////////////////////////////////////////////////////////////
 /* Output Types                                                          */
 ///////////////////////////////////////////////////////////////////////////
-typedef modadd_status_e (*modadd_fixture_append_t)(modadd_fixture_t* fixture, modadd_ctrl_t* ctrl);
-typedef modadd_status_e (*modadd_fixture_remove_t)(modadd_fixture_t* fixture, modadd_ctrl_t* ctrl);
+typedef modadd_status_e (*modadd_fixture_append_t)(addressable_fixture_obj_t* fixture, modadd_ctrl_t* ctrl);
+typedef modadd_status_e (*modadd_fixture_remove_t)(addressable_fixture_obj_t* fixture, modadd_ctrl_t* ctrl);
 struct _modadd_fixture_ctrl_t{
-    modadd_fixture_t*       head;
+    modadd_fixture_node_t*  head;
     uint8_t*                data;
     uint32_t                data_len;
     bool                    size_increased;

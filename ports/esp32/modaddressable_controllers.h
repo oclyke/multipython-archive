@@ -31,6 +31,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // extern modadd_ctrl_t* modadd_controllers[MODADD_NUM_OUTPUTS];
 extern modadd_ctrl_t* modadd_controllers[];
 
+extern addressable_fixture_obj_t machone_stat_fixture_obj;
 
 
 #endif // _MODADDRESSABLE_CONTROLLERS_H_
