@@ -62,6 +62,7 @@ typedef enum {
     MODADD_OP_DIV,
     MODADD_OP_ADD,
     MODADD_OP_SUB,
+    MODADD_OP_COMP, // composite, using premultiplied alpha concepts
 
     MODADD_OP_NUM,
 }modadd_operations_e;

@@ -325,6 +325,9 @@ STATIC mp_obj_t addressable_fixture_layers(size_t n_args, const mp_obj_t *pos_ar
 STATIC mp_obj_t addressable_fixture_set(mp_obj_t self_in, mp_obj_t start_index_obj, mp_obj_t colors) {
     addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
+    mp_raise_ValueError("Fixture.set() is deprecated. Create a layer and use Layer.set(). Remember to choose a mode with Layer.mode()\n");
+    return mp_const_none;
+    
     if( self->protocol >= MODADD_PROTOCOLS_NUM ){
         mp_raise_ValueError("Fixture protocol unknown, cannot set data\n");
         return mp_const_none;

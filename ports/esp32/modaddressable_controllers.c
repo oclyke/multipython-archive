@@ -141,7 +141,7 @@ modadd_status_e mach1_stat_init( modadd_ctrl_t* ctrl ){
 #define MACH1_ALED_INIT_FN mach1_aled_init
 #define MACH1_ALED_TIMER_PERIOD (33333)
 // #define MACH1_ALED_FREQ (10*1000*1000)
-#define MACH1_ALED_FREQ (5*1000*1000)
+#define MACH1_ALED_FREQ (1*1000*1000)
 
 IRAM_ATTR static void mach1_aled_output(void* arg);
 modadd_status_e mach1_aled_init( modadd_ctrl_t* ctrl );

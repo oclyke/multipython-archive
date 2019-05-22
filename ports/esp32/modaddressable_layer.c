@@ -23,6 +23,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "modaddressable_layer.h"
 
+#define MODADD_INT_MULT(a,b,t) ( (t) = (a) * (b) + 0x80, ( ( ( (t)>>8 ) + (t) )>>8 ) )
+#define MODADD_INT_PRELERP(p, q, a, t) ( (p) + (q) - MODADD_INT_MULT( a, p, t) )
+
 ////////////////////////////////////////////////////////////////////////////
 /* MicroPython Fixture Class                                              */
 ////////////////////////////////////////////////////////////////////////////
@@ -50,6 +53,7 @@ STATIC const mp_rom_map_elem_t addressable_layer_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_DIV), MP_ROM_INT(MODADD_OP_DIV) },
     { MP_ROM_QSTR(MP_QSTR_ADD), MP_ROM_INT(MODADD_OP_ADD) },
     { MP_ROM_QSTR(MP_QSTR_SUB), MP_ROM_INT(MODADD_OP_SUB) },
+    { MP_ROM_QSTR(MP_QSTR_COMP), MP_ROM_INT(MODADD_OP_COMP) }, // premultiplied alpha composite
  };
 STATIC MP_DEFINE_CONST_DICT(addressable_layer_locals_dict, addressable_layer_locals_dict_table);
 
@@ -310,12 +314,47 @@ IRAM_ATTR static void addressable_composer_SUB(addressable_fixture_obj_t* fixtur
         }
     }
 };
-
-IRAM_ATTR void addressable_composer_enforce_protocol_data(addressable_fixture_obj_t* fixture){
+IRAM_ATTR static void addressable_composer_COMP(addressable_fixture_obj_t* fixture, addressable_layer_obj_t* layer){
     modadd_protocols_e  proto = fixture->ctrl->output.protocol; // using the output's protocol because we operate in the output's domain here
     const modadd_protocol_t*  protocol = modadd_protocols[proto];
     uint8_t             bpl = protocol->bpl;
     uint8_t*            dst = fixture->data;
+    uint8_t*            src = layer->data;
+
+    // This composer composites the images using the notion of premultipled alpha information
+
+    for(size_t led = 0; led < fixture->leds; led++){            // Loop over all leds
+        int t;
+        uint8_t beta = 0xFF; // default to full opacity
+
+        uint8_t* src_0 = (src + (bpl * led) + protocol->indices[0]);
+        uint8_t* src_1 = (src + (bpl * led) + protocol->indices[1]);
+        uint8_t* src_2 = (src + (bpl * led) + protocol->indices[2]);
+        uint8_t* src_3 = (src + (bpl * led) + protocol->indices[3]);
+
+        uint8_t* dst_0 = (dst + (bpl * led) + 0);
+        uint8_t* dst_1 = (dst + (bpl * led) + 1);
+        uint8_t* dst_2 = (dst + (bpl * led) + 2);
+
+        if( 1 ) // for now always use alpha channel of layers
+        // if( bpl > 3 )
+        {
+            beta = *(src + (bpl * led) + MODADD_A_INDEX);        // if the output uses alpha then get that channel from 
+        }
+
+        // use the opacity to compute the new colors
+        *(dst_0) = MODADD_INT_PRELERP(*(dst_0), *(src_0), beta, t );
+        *(dst_1) = MODADD_INT_PRELERP(*(dst_1), *(src_1), beta, t );
+        *(dst_2) = MODADD_INT_PRELERP(*(dst_2), *(src_2), beta, t );
+        // *(dst + (bpl * led) + 3) // the alpha channel is left untouched, whether or not it exists for this output type
+    }
+};
+
+IRAM_ATTR void addressable_composer_enforce_protocol_data(addressable_fixture_obj_t* fixture){
+    modadd_protocols_e  proto = fixture->ctrl->output.protocol; // using the output's protocol because we operate in the output's domain here
+    const modadd_protocol_t*    protocol = modadd_protocols[proto];
+    uint8_t                     bpl = protocol->bpl;
+    uint8_t*                    dst = fixture->data;
 
     // for now protocol enforcement only deals with data, not leading or trailing byte sequences. todo: consider a general method to enforce leading/trailing byte sequences
     uint8_t*            write_head = fixture->data;
@@ -345,7 +384,6 @@ IRAM_ATTR void addressable_layer_compose(void* arg){
     if(ctrl->fixture_ctrl.data_len == 0){ return; }
 
     // Otherwise... iterate over fixtures linked list 
-    
     for( fiter = modadd_fixture_iter_first(MODADD_ITER_FROM_FIXTURE_PTR(ctrl->fixture_ctrl.head)); !modadd_fixture_iter_done(fiter); fiter = modadd_fixture_iter_next(fiter) ){
         fixture = (addressable_fixture_obj_t*)MODADD_FIXTURE_PTR_FROM_ITER(fiter)->fixture;
 
@@ -353,6 +391,12 @@ IRAM_ATTR void addressable_layer_compose(void* arg){
         if( fixture->layers == NULL ){ continue; }
         if( fixture->data == NULL ){ continue; }
         if( fixture->leds == 0 ){ continue; }
+
+        // Zero out the output buffer (this is a solution to most "second composition" problems)
+        modadd_protocols_e  proto = fixture->ctrl->output.protocol; // using the output's protocol because we operate in the output's domain here
+        const modadd_protocol_t*    protocol = modadd_protocols[proto];
+        memset(fixture->data, 0x00, fixture->leds*protocol->bpl );
+
 
         // For each layer in the fixture use the specified operation to combine with the output data
         for( liter = modadd_layer_iter_first(MODADD_ITER_FROM_LAYER_PTR( fixture->layers )); !modadd_layer_iter_done(liter); liter = modadd_layer_iter_next(liter) ){
@@ -371,6 +415,7 @@ IRAM_ATTR void addressable_layer_compose(void* arg){
                     case MODADD_OP_DIV  : composer = addressable_composer_DIV; break;
                     case MODADD_OP_ADD  : composer = addressable_composer_ADD; break;
                     case MODADD_OP_SUB  : composer = addressable_composer_SUB; break;
+                    case MODADD_OP_COMP : composer = addressable_composer_COMP; break;
 
                     case MODADD_OP_SKIP :
                     case MODADD_OP_NUM :
