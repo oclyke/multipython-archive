@@ -145,7 +145,7 @@ mp_obj_t addressable_controller_make_new( const mp_obj_type_t *type, size_t n_ar
 
 extern void dict_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);
 STATIC void addressable_controller_print( const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind ) {
-    addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    // addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
     printf ("Addressable controller class object w/ fixtures:\n");
     // dict_print(&mp_plat_print, addressable_controller_dict(self_in), kind);
     // dict_print(&mp_plat_print, addressable_controller_fixtures( 1, self_in, NULL), kind);
@@ -391,7 +391,7 @@ void modadd_fixture_count_leds(modadd_fixture_iter_t iter, void* args){
 void modadd_fixture_recomputation(modadd_fixture_iter_t iter, void* args){
     modadd_fixture_recomputation_struct_t* recomp = (modadd_fixture_recomputation_struct_t*)args;
     addressable_fixture_obj_t* fixture = (addressable_fixture_obj_t*)MODADD_FIXTURE_PTR_FROM_ITER(iter)->fixture;
-    fixture->data = recomp->data;
+    fixture->out_data = recomp->data;
     fixture->ctrl = recomp->ctrl;
     recomp->data += ((fixture->leds) * recomp->protocol->bpl);
     // recomp

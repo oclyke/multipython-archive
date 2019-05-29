@@ -37,6 +37,14 @@
 #include "py/objexcept.h"
 #include "py/parse.h"
 
+#define MP_RESPONSE_QUEUE_SIZE    (256)
+typedef struct _mp_response_t mp_response_t;
+struct _mp_response_t{
+    uint8_t     control_op;
+    mp_obj_t    argument;
+};
+
+
 // This file contains structures defining the state of the MicroPython
 // memory system, runtime and virtual machine.  The state is a global
 // variable, but in the future it is hoped that the state can become local.
@@ -272,12 +280,24 @@ typedef struct _mp_task_args_t {
     void*                   addtl;
 }mp_task_args_t;
 
+typedef struct _mp_response_queue_t{
+    mp_response_t buff[MP_RESPONSE_QUEUE_SIZE]; 
+    size_t r_head;
+    size_t w_head;
+}mp_response_queue_t;
+
+size_t mp_response_queue_available( mp_response_queue_t* queue );
+size_t mp_response_queue_peek( mp_response_queue_t* queue, mp_response_t* response );
+size_t mp_response_queue_read( mp_response_queue_t* queue, mp_response_t* response );
+size_t mp_response_queue_write( mp_response_queue_t* queue, mp_response_t response );
+
 struct _mp_context_node_t{
     uint32_t                    id;
     int32_t                     status;
     mp_state_ctx_t*             state;
     mp_task_args_t              args;
     void*                       threadctrl;
+    mp_response_queue_t         response_queue;
     mp_context_dynmem_node_t*   memhead;
     struct _mp_context_node_t*  next;
 };

@@ -63,6 +63,7 @@ typedef enum {
     MODADD_OP_ADD,
     MODADD_OP_SUB,
     MODADD_OP_COMP, // composite, using premultiplied alpha concepts
+    MODADD_OP_MASK,
 
     MODADD_OP_NUM,
 }modadd_operations_e;
@@ -110,15 +111,16 @@ typedef enum{
 }modadd_color_ind_e;
 
 typedef struct _modadd_protocol_t{
-    const uint8_t               bpl;                // bytes per led
-    const uint8_t*              or_mask;            // array of length bpl that will be OR'd with the data
-    const modadd_color_ind_e*   indices;            // array of length bpl that shows which color goes where (good for R, G, B, and A)
-    const uint8_t               num_leading_rate;   // number of extra bytes needed to be sent per led in the strip (sent in pre xfer)
-    const uint8_t               num_leading_const;  // constant length of leading bytes (that are sent ahead of any fixture data)
-    // const uint8_t*              leading;            // the leading bytes to send, if any
-    const uint8_t               num_trailing_rate;  // number of extra bytes needed to be sent per led in the strip (sent after led data)
-    const uint8_t               num_trailing_const; // length of trailing bytes 
-    // const uint8_t*              trailing;           // the trailing bytes to send, if any             
+    const uint8_t               bpl;                    // bytes per led
+    const uint8_t*              or_mask;                // array of length bpl that will be OR'd with the data
+    const modadd_color_ind_e*   indices;                // array of length bpl that shows which color goes where (good for R, G, B, and A)
+    const uint8_t               num_leading_rate;       // number of extra bytes needed to be sent per led in the strip (sent in pre xfer)
+    const uint8_t               num_leading_const;      // constant length of leading bytes (that are sent ahead of any fixture data)
+    // const uint8_t*              leading;             // the leading bytes to send, if any
+    const uint8_t               num_trailing_rate;      // number of extra bytes needed to be sent per led in the strip (sent after led data)
+    const uint8_t               num_trailing_const;     // length of trailing bytes 
+    // const uint8_t*              trailing;            // the trailing bytes to send, if any     
+    const uint8_t               brightness_rightshifts; // If supports brightness, how many to right-shift for full-scale (255) support. e.g. on apa102 this is 3  
 }modadd_protocol_t;
 
 typedef struct _modadd_fixture_ctrl_t modadd_fixture_ctrl_t;    // forward declaration of fixture control type
@@ -140,8 +142,10 @@ typedef struct _addressable_fixture_obj_t {
     modadd_fixt_id_t                id;         // id of this fixture
     modadd_protocols_e              protocol;   // protocol that this fixture is associated with
     uint32_t                        leds;       // number of LEDs in this fixture
-    modadd_ctrl_t*                  ctrl;   // pointer to the control structure that this fixture is associated with
-    uint8_t*                        data;   // pointer to data for this fixture
+    modadd_ctrl_t*                  ctrl;       // pointer to the control structure that this fixture is associated with
+    uint8_t*                        out_data;   // pointer to output data for this fixture (formatted according to protocol and DMA-capable w/ other fixtures in the string)
+    uint8_t*                        comp_data;  // pointer to the composition data for this fixture ( uses MODADD standard format, arbitrary location in memory)
+    uint8_t                         brightness; // the brightness to use for this fixture, if applicable
     // modadd_fixture_trans_t*         trans;  // todo: reconsider storing rotation / translation data on the ESP32... maybe OK just to use it on the phone? Or maybe the 4 MB SRAM can justify it...
     // modadd_fixture_rot_t*           rot;
     modadd_layer_node_t*    layers;     // linked list of layers associated with this fixture

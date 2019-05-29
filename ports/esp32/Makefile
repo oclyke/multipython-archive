@@ -71,6 +71,7 @@ INC += -I$(TOP)/lib/mp-readline
 INC += -I$(TOP)/lib/netutils
 INC += -I$(TOP)/lib/timeutils
 INC += -I$(TOP)/ports/esp32/ota
+# INC += -I../../../jsmn
 INC += -I$(BUILD)
 
 INC_ESPCOMP += -I$(ESPCOMP)/bootloader_support/include
@@ -242,6 +243,7 @@ SRC_C = \
 	ota/wifi_tls.c \
 	bt_spp.c \
 	ble_spp.c \
+	modevent.c \
 	$(SRC_MOD)
 
 # 	static_spp_example.S

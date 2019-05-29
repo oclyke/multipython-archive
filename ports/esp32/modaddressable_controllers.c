@@ -41,8 +41,9 @@ This includes the controller structures and potentially callback functions as ne
 #define MACH1_STAT_INIT_FN mach1_stat_init
 #define MACHONE_STAT_TIMER_PERIOD 33333
 
-#define MACHONE_STAT_DATA_BYTES 8
-DRAM_ATTR uint8_t machone_stat_data[MACHONE_STAT_DATA_BYTES];
+#define MACHONE_STAT_OUT_DATA_BYTES 8
+DRAM_ATTR uint8_t machone_stat_out_data[MACHONE_STAT_OUT_DATA_BYTES];
+uint8_t machone_stat_comp_data[1*MODADD_BPL];
 
 IRAM_ATTR static void mach1_stat_output(void* arg);
 modadd_status_e mach1_stat_init( modadd_ctrl_t* ctrl );
@@ -78,8 +79,10 @@ addressable_fixture_obj_t machone_stat_fixture_obj = {
     // .protocol = MODADD_PROTOCOL_APA102_SW,
     .leds = 1,
     .ctrl = NULL,
-    .data = machone_stat_data + 4,
+    .out_data = machone_stat_out_data + 4,
+    .comp_data = machone_stat_comp_data,
     .layers = NULL,
+    .brightness = 127,
 };
 
 modadd_fixture_node_t machone_stat_fixture_node = {
@@ -107,8 +110,8 @@ modadd_ctrl_t mach1_stat_ctrl = {
     },
     .fixture_ctrl = {
         .head = &machone_stat_fixture_node,
-        .data = machone_stat_data,
-        .data_len = MACHONE_STAT_DATA_BYTES,
+        .data = machone_stat_out_data,
+        .data_len = MACHONE_STAT_OUT_DATA_BYTES,
         .size_increased = false,
         .append = NULL, // this disallows appending fixtures to the stat LED
         .remove = NULL, // disallows removing fixtures from stat LED

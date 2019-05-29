@@ -54,6 +54,40 @@ void mp_context_refresh( void ){
     #endif // MICROPY_PY_SYS
 }
 
+// operation queue functions
+
+size_t mp_response_queue_available( mp_response_queue_t* queue ){
+    if( queue->r_head == queue->w_head ){ return 0; }
+    if( queue->w_head > queue->r_head ){ return (queue->w_head - queue->r_head); }
+    else{ return (( queue->w_head ) + ( MP_RESPONSE_QUEUE_SIZE - 1 - queue->r_head ) ); }
+}
+
+size_t mp_response_queue_peek( mp_response_queue_t* queue, mp_response_t* response ){
+    if( queue->r_head == queue->w_head ){ return 0; }
+    *response = *(queue->buff + queue->r_head);
+    return 1;
+}
+
+size_t mp_response_queue_read( mp_response_queue_t* queue, mp_response_t* response ){
+    size_t next = 0;
+    if( queue->r_head == queue->w_head ){ return 0; }
+    next = queue->r_head + 1;
+    if( next >= MP_RESPONSE_QUEUE_SIZE ){ next = 0; }
+    *response = *(queue->buff + queue->r_head);
+    queue->r_head = next;
+    return 1;
+}
+
+size_t mp_response_queue_write( mp_response_queue_t* queue, mp_response_t response ){
+    // stores an operation in the operation queue, unless the queue is full. Returns the number of successful stores
+    size_t next = queue->w_head + 1;
+    if( next >= MP_RESPONSE_QUEUE_SIZE ){ next = 0; }
+    if( next == queue->r_head ){ return 0; }
+    *(queue->buff + queue->w_head) = response;
+    queue->w_head = next;
+    return 1;
+}
+
 // context iterator functions
 mp_context_iter_t mp_context_iter_first( mp_context_iter_t head ){ return head; }
 bool mp_context_iter_done( mp_context_iter_t iter ){ return (iter == NULL); }

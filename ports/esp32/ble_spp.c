@@ -314,8 +314,8 @@ static void print_write_buffer(void)
 void uart_task(void *pvParameters)
 {
     uart_event_t event;
-    uint8_t total_num = 0;
-    uint8_t current_num = 0;
+    // uint8_t total_num = 0;
+    // uint8_t current_num = 0;
 
     for (;;) {
         //Waiting for UART event.
@@ -411,25 +411,25 @@ void uart_task(void *pvParameters)
     vTaskDelete(NULL);
 }
 
-static void spp_uart_init(void)
-{
-    uart_config_t uart_config = {
-        .baud_rate = 115200,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_RTS,
-        .rx_flow_ctrl_thresh = 122,
-    };
+// static void spp_uart_init(void)
+// {
+//     uart_config_t uart_config = {
+//         .baud_rate = 115200,
+//         .data_bits = UART_DATA_8_BITS,
+//         .parity = UART_PARITY_DISABLE,
+//         .stop_bits = UART_STOP_BITS_1,
+//         .flow_ctrl = UART_HW_FLOWCTRL_RTS,
+//         .rx_flow_ctrl_thresh = 122,
+//     };
 
-    //Set UART parameters
-    uart_param_config(UART_NUM_0, &uart_config);
-    //Set UART pins
-    uart_set_pin(UART_NUM_0, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    //Install UART driver, and get the queue.
-    uart_driver_install(UART_NUM_0, 4096, 8192, 10,&spp_uart_queue,0);
-    xTaskCreate(uart_task, "uTask", 2048, (void*)UART_NUM_0, 8, NULL);
-}
+//     //Set UART parameters
+//     uart_param_config(UART_NUM_0, &uart_config);
+//     //Set UART pins
+//     uart_set_pin(UART_NUM_0, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+//     //Install UART driver, and get the queue.
+//     uart_driver_install(UART_NUM_0, 4096, 8192, 10,&spp_uart_queue,0);
+//     xTaskCreate(uart_task, "uTask", 2048, (void*)UART_NUM_0, 8, NULL);
+// }
 
 #ifdef SUPPORT_HEARTBEAT
 void spp_heartbeat_task(void * arg)

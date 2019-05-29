@@ -1,5 +1,6 @@
 import gc
 import uos
+import mach1
 from flashbdev import bdev
 
 try:
@@ -16,5 +17,7 @@ try:
         uos.mount(sdbdevice, '/sdcard')
 except OSError:
     print('No SD Block Device')
+
+mach1._boot()
 
 gc.collect()

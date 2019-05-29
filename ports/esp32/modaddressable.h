@@ -66,5 +66,6 @@ and output will only be allocated:
                         // Similarly colors are always stored in [Red, Green, Blue, Alpha] format until placed into an output buffer
 void modadd_ctrl_recompute_fixtures( modadd_ctrl_t* ctrl );
 
+// #define MODADD_STANDARD_CHANNELS    (3)
 
 #endif // _MODADDRESSABLE_H_

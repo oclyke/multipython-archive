@@ -38,6 +38,7 @@ const modadd_protocol_t modadd_protocol_apa102 = {
     .num_trailing_const = 0, 
     .num_trailing_rate = 16,
     // .trailing = NULL,
+    .brightness_rightshifts = 3,
 };
 
 const uint8_t ws2812_or_mask[] = { 0x00, 0x00, 0x00 };
@@ -52,6 +53,7 @@ const modadd_protocol_t modadd_protocol_ws2812 = {
     .num_trailing_const = 0, 
     .num_trailing_rate = 0,
     // .trailing = NULL,
+    .brightness_rightshifts = 0,
 };
 
 const modadd_protocol_t* modadd_protocols[MODADD_PROTOCOLS_NUM] = {

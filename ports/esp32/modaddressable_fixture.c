@@ -41,7 +41,8 @@ mp_obj_t addressable_fixture_get_dict( mp_obj_t fixture_obj, mp_int_t position )
     const char* str_key_protocol = "protocol";
     const char* str_key_leds = "leds";
     const char* str_key_ctrl = "ctrl";
-    const char* str_key_data = "data";
+    const char* str_key_comp_data = "comp_data";
+    const char* str_key_out_data = "out_data";
     // const char* str_key_next = "next";
 
     mp_obj_t key_pos = mp_obj_new_str_via_qstr(str_key_pos, strlen(str_key_pos));
@@ -50,7 +51,8 @@ mp_obj_t addressable_fixture_get_dict( mp_obj_t fixture_obj, mp_int_t position )
     mp_obj_t key_protocol = mp_obj_new_str_via_qstr(str_key_protocol, strlen(str_key_protocol));
     mp_obj_t key_leds = mp_obj_new_str_via_qstr(str_key_leds, strlen(str_key_leds));
     mp_obj_t key_ctrl = mp_obj_new_str_via_qstr(str_key_ctrl, strlen(str_key_ctrl));
-    mp_obj_t key_data = mp_obj_new_str_via_qstr(str_key_data, strlen(str_key_data));
+    mp_obj_t key_comp_data = mp_obj_new_str_via_qstr(str_key_comp_data, strlen(str_key_comp_data));
+    mp_obj_t key_out_data = mp_obj_new_str_via_qstr(str_key_out_data, strlen(str_key_out_data));
     // mp_obj_t key_next = mp_obj_new_str_via_qstr(str_key_next, strlen(str_key_next));
 
     mp_obj_t pos;
@@ -63,7 +65,8 @@ mp_obj_t addressable_fixture_get_dict( mp_obj_t fixture_obj, mp_int_t position )
     mp_obj_t protocol = mp_obj_new_int( (mp_int_t)fixture->protocol );
     mp_obj_t leds = mp_obj_new_int( (mp_int_t)fixture->leds );
     mp_obj_t ctrl = mp_obj_new_int( (mp_int_t)fixture->ctrl );
-    mp_obj_t data = mp_obj_new_int( (mp_int_t)fixture->data );
+    mp_obj_t comp_data = mp_obj_new_int( (mp_int_t)fixture->comp_data );
+    mp_obj_t out_data = mp_obj_new_int( (mp_int_t)fixture->out_data );
     // mp_obj_t next = mp_obj_new_int( (mp_int_t)fixture->next );
 
     mp_obj_dict_store( fixture_dict,    key_pos,        pos         );
@@ -72,7 +75,8 @@ mp_obj_t addressable_fixture_get_dict( mp_obj_t fixture_obj, mp_int_t position )
     mp_obj_dict_store( fixture_dict,    key_protocol,   protocol    );
     mp_obj_dict_store( fixture_dict,    key_leds,       leds        );
     mp_obj_dict_store( fixture_dict,    key_ctrl,       ctrl        );
-    mp_obj_dict_store( fixture_dict,    key_data,       data        );
+    mp_obj_dict_store( fixture_dict,    key_comp_data,  comp_data   );
+    mp_obj_dict_store( fixture_dict,    key_out_data,   out_data    );
     // mp_obj_dict_store( fixture_dict,    key_next,       next        );
 
     return fixture_dict;
@@ -121,15 +125,15 @@ const mp_obj_type_t addressable_fixtureObj_type = {
 
 
 mp_obj_t addressable_fixture_make_new( const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args ) {
-    enum { ARG_leds, ARG_protocol, ARG_name, ARG_trans, ARG_rot, ARG_template, ARG_get_stat_fixture };
+    enum { ARG_leds, ARG_protocol, ARG_name, ARG_trans, ARG_rot, ARG_template, ARG_brightness };
     static const mp_arg_t allowed_args[] = {
-        { MP_QSTR_leds,     MP_ARG_INT,                     {.u_int = 0} },
-        { MP_QSTR_protocol, MP_ARG_KW_ONLY | MP_ARG_INT,    {.u_int = MODADD_PROTOCOL_UNKNOWN } },
-        { MP_QSTR_name,     MP_ARG_KW_ONLY | MP_ARG_OBJ,    {.u_obj = mp_const_none} },
-        { MP_QSTR_trans,    MP_ARG_KW_ONLY | MP_ARG_OBJ,    {.u_obj = mp_const_none} },
-        { MP_QSTR_rot,      MP_ARG_KW_ONLY | MP_ARG_OBJ,    {.u_obj = mp_const_none} },
-        { MP_QSTR_template, MP_ARG_KW_ONLY | MP_ARG_OBJ,    {.u_obj = mp_const_none} },
-        { MP_QSTR_get_stat_fixture, MP_ARG_KW_ONLY | MP_ARG_BOOL,    {.u_bool = false} },
+        { MP_QSTR_leds,         MP_ARG_INT,                     {.u_int = 0} },
+        { MP_QSTR_protocol,     MP_ARG_KW_ONLY | MP_ARG_INT,    {.u_int = MODADD_PROTOCOL_UNKNOWN } },
+        { MP_QSTR_name,         MP_ARG_KW_ONLY | MP_ARG_OBJ,    {.u_obj = mp_const_none} },
+        { MP_QSTR_trans,        MP_ARG_KW_ONLY | MP_ARG_OBJ,    {.u_obj = mp_const_none} },
+        { MP_QSTR_rot,          MP_ARG_KW_ONLY | MP_ARG_OBJ,    {.u_obj = mp_const_none} },
+        { MP_QSTR_template,     MP_ARG_KW_ONLY | MP_ARG_OBJ,    {.u_obj = mp_const_none} },
+        { MP_QSTR_brightness,   MP_ARG_KW_ONLY | MP_ARG_INT,    {.u_int = 127} },
     };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
@@ -138,94 +142,60 @@ mp_obj_t addressable_fixture_make_new( const mp_obj_type_t *type, size_t n_args,
     // // on error -> raise python exception
     // mp_arg_check_num(n_args, n_kw, 1, 1, true);
 
+    // create a new object of our C-struct type
     addressable_fixture_obj_t *self = NULL;
-    if( args[ARG_get_stat_fixture].u_bool == true ){
-        // // we want the stat fixture, so get that
-        // addressable_fixture_obj_t* fix = (addressable_fixture_obj_t*)modadd_controllers[MACH1_CONTROLLER_STAT]->fixture_ctrl.head->fixture;
-        // mach1_stat_fixture_obj.info = fix->info;
-        // self = &mach1_stat_fixture_obj;
+    self = m_new_obj(addressable_fixture_obj_t);
+    memset( (void*)self, 0x00, sizeof(addressable_fixture_obj_t) );
+    self->base.type = &addressable_fixtureObj_type; // give it a type
 
-        // todo: fix this (maybe done with below?)
-
-        return &machone_stat_fixture_obj;
-
-    }else{
-        // // dynamically allocate the modadd_fixture_t that this object will point to 
-        // modadd_fixture_t* fix_info = (modadd_fixture_t*)MODADD_MALLOC(sizeof(modadd_fixture_t));
-        // if( fix_info == NULL ){             // todo: !!! make sure there is a way to get rid of this memory when not needed !!! 
-        //     mp_raise_OSError(MP_ENOMEM);
-        //     return mp_const_none;
-        // }
-        // memset( (void*)fix_info, 0x00, sizeof(modadd_fixture_t) );
-
-        // create a new object of our C-struct type
-        self = m_new_obj(addressable_fixture_obj_t);
-        memset( (void*)self, 0x00, sizeof(addressable_fixture_obj_t) );
-        self->base.type = &addressable_fixtureObj_type; // give it a type
-
-        if( args[ARG_template].u_obj == mp_const_none ){
-            // if(args[ARG_leds].u_int == 0){
-            //     mp_raise_ValueError("Cannot make a fixture with 0 leds\n");
-            //     return mp_const_none;
-            // }
-
-            self->leds = args[ARG_leds].u_int;
-            self->protocol = args[ARG_protocol].u_int;
-            // printf("protocol is 0x%X\n", mp_obj_get_int_truncated(args[ARG_protocol].u_int));
-
-            if( mp_obj_is_str(args[ARG_name].u_obj) ){
-                // printf("name is '%s'\n", mp_obj_str_get_str(args[ARG_name].u_obj));
-                self->name = (char*)mp_obj_str_get_str(args[ARG_name].u_obj);
-            }/*else{
-                // printf("no name supplied\n");
-            }*/
-
-            // todo: handle rotation and translation arguments
-
-            // if( mp_obj_is_type(args[ARG_trans].u_obj, &mp_type_list) ){
-            //  create new arrays of led locations
-            //}else{
-            //  no other types allowed for the trans input
-            //}
-
-            // if( mp_obj_is_type(args[ARG_rot].u_obj, &mp_type_list) ){
-            //  create new arrays of led rotations
-            //}else{
-            //  no other types allowed for the trans input
-            //}
-
-            // todo: reconsider storing rotation / translation data on the ESP32... maybe OK just to use it on the phone?
-        }else{
-            if( mp_obj_is_type(args[ARG_template].u_obj, &addressable_fixtureObj_type) ){
-                
-                // todo: do I even want this template feature?
-                printf("Error: templates not currently supported\n");
-                return mp_const_none;
-                
-                // addressable_fixture_obj_t template = *((addressable_fixture_obj_t*)args[ARG_template].u_obj); 
-                // self->info = template.info;
-
-                // if( mp_obj_is_str(args[ARG_name].u_obj) ){
-                //     printf("name is '%s'\n", mp_obj_str_get_str(args[ARG_name].u_obj));
-                //     self->info->name = (char*)mp_obj_str_get_str(args[ARG_name].u_obj);
-                // }
-
-            }else{
-                printf("Error: template fixture must be of fixture type\n");
-                return mp_const_none;
-            }
-        }
+    if(args[ARG_leds].u_int == 0){
+        mp_raise_ValueError("Cannot make a fixture with 0 leds\n");
+        return mp_const_none;
     }
+
+    // Associate some items
+    self->leds = args[ARG_leds].u_int;
+    self->protocol = args[ARG_protocol].u_int;
+    self->brightness = args[ARG_brightness].u_int;
+    if( mp_obj_is_str(args[ARG_name].u_obj) ){
+        self->name = (char*)mp_obj_str_get_str(args[ARG_name].u_obj);
+    }
+
+    // Try to allocate the composition layer
+    uint8_t* comp_data = (uint8_t*)MODADD_MALLOC((self->leds*MODADD_BPL)*sizeof(uint8_t));
+    if(comp_data == NULL){
+        mp_raise_ValueError("Could not allocate memory for composition layer\n");
+        return mp_const_none;
+    }
+    memset( (void*)comp_data, 0x00, (self->leds*MODADD_BPL)*sizeof(uint8_t) );
+    self->comp_data = comp_data;
+
+
+    // todo: handle rotation and translation arguments
+
+    // if( mp_obj_is_type(args[ARG_trans].u_obj, &mp_type_list) ){
+    //  create new arrays of led locations
+    //}else{
+    //  no other types allowed for the trans input
+    //}
+
+    // if( mp_obj_is_type(args[ARG_rot].u_obj, &mp_type_list) ){
+    //  create new arrays of led rotations
+    //}else{
+    //  no other types allowed for the trans input
+    //}
+
+    // todo: reconsider storing rotation / translation data on the ESP32... maybe OK just to use it on the phone?
 
     return MP_OBJ_FROM_PTR(self);
 }
 
 extern void dict_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);
 STATIC void addressable_fixture_print( const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind ) {
-    // get a ptr to the C-struct of the object
-    addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    // print the number
-    // printf ("Fixture class object with #leds = %d\n", self->info->leds);
+    // // get a ptr to the C-struct of the object
+    // addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    // // print the number
+    // // printf ("Fixture class object with #leds = %d\n", self->info->leds);
     printf ("Fixture class object: ");
     dict_print(&mp_plat_print, addressable_fixture_get_dict( self_in, -1 ), kind);
 }
@@ -323,149 +293,152 @@ STATIC mp_obj_t addressable_fixture_layers(size_t n_args, const mp_obj_t *pos_ar
 }
 
 STATIC mp_obj_t addressable_fixture_set(mp_obj_t self_in, mp_obj_t start_index_obj, mp_obj_t colors) {
-    addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    // addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
     mp_raise_ValueError("Fixture.set() is deprecated. Create a layer and use Layer.set(). Remember to choose a mode with Layer.mode()\n");
     return mp_const_none;
     
-    if( self->protocol >= MODADD_PROTOCOLS_NUM ){
-        mp_raise_ValueError("Fixture protocol unknown, cannot set data\n");
-        return mp_const_none;
-    }
+    // if( self->protocol >= MODADD_PROTOCOLS_NUM ){
+    //     mp_raise_ValueError("Fixture protocol unknown, cannot set data\n");
+    //     return mp_const_none;
+    // }
 
-    mp_int_t start_index;
-    mp_obj_get_int_maybe( start_index_obj, &start_index );
+    // mp_int_t start_index;
+    // mp_obj_get_int_maybe( start_index_obj, &start_index );
 
-    // printf("index = %d\n", index);
+    // // printf("index = %d\n", index);
 
-    if( start_index >= self->leds ){ 
-        mp_raise_ValueError("Index exceeds fixture LEDs\n"); 
-        return mp_const_none;
-    }
+    // if( start_index >= self->leds ){ 
+    //     mp_raise_ValueError("Index exceeds fixture LEDs\n"); 
+    //     return mp_const_none;
+    // }
 
-    if( mp_obj_is_type( colors, &mp_type_list) ){
-        size_t colors_len;
-        mp_obj_t* colors_items;
-        mp_obj_list_get(colors, &colors_len, &colors_items);
+    // if( mp_obj_is_type( colors, &mp_type_list) ){
+    //     size_t colors_len;
+    //     mp_obj_t* colors_items;
+    //     mp_obj_list_get(colors, &colors_len, &colors_items);
 
-        // printf("the number of colors supplied is: %d\n", colors_len);
-        // printf("the address of the first color is: 0x%X\n", (uint32_t)colors_items);
+    //     // printf("the number of colors supplied is: %d\n", colors_len);
+    //     // printf("the address of the first color is: 0x%X\n", (uint32_t)colors_items);
 
-        const modadd_protocol_t* protocol = modadd_protocols[self->protocol];
-        uint8_t     bpl = protocol->bpl;
-        uint8_t*    base = self->data;
+    //     const modadd_protocol_t* protocol = modadd_protocols[self->protocol];
+    //     uint8_t     bpl = protocol->bpl;
+    //     uint8_t*    base = self->comp_data;
 
-        // printf("base address for this fixture = 0x%X\n", (uint32_t)base );
+    //     // printf("base address for this fixture = 0x%X\n", (uint32_t)base );
 
-        for(size_t color_ind = 0; color_ind < colors_len; color_ind++){
-            if( mp_obj_is_type( colors_items[color_ind], &mp_type_list) ){
-                size_t color_len;
-                mp_obj_t* color_components;
-                mp_obj_list_get(colors_items[color_ind], &color_len, &color_components);
+    //     for(size_t color_ind = 0; color_ind < colors_len; color_ind++){
+    //         if( mp_obj_is_type( colors_items[color_ind], &mp_type_list) ){
+    //             size_t color_len;
+    //             mp_obj_t* color_components;
+    //             mp_obj_list_get(colors_items[color_ind], &color_len, &color_components);
 
                 
 
-                uint32_t index = color_ind + start_index;
-                if( index >= (self->leds) ){ break; } // don't write into other fixture's memory!
+    //             uint32_t index = color_ind + start_index;
+    //             if( index >= (self->leds) ){ break; } // don't write into other fixture's memory!
 
-                if( ( base == NULL ) ){ mp_raise_ValueError("There is no memory for this fixture - try adding the fixture to an output string\n"); }
-                if( color_len < bpl ){
-                    mp_raise_ValueError("Too few color elements for this protocol\n");
-                    return mp_const_none;
-                }
+    //             if( ( base == NULL ) ){ mp_raise_ValueError("There is no memory for this fixture - try adding the fixture to an output string\n"); }
+    //             if( color_len < bpl ){
+    //                 mp_raise_ValueError("Too few color elements for this protocol\n");
+    //                 return mp_const_none;
+    //             }
 
-                for( uint8_t component_ind = 0; component_ind < bpl; component_ind++ ){
-                    mp_int_t val;
-                    mp_obj_get_int_maybe( (color_components[protocol->indices[component_ind]]), &val );
+    //             for( uint8_t component_ind = 0; component_ind < bpl; component_ind++ ){
+    //                 mp_int_t val;
+    //                 mp_obj_get_int_maybe( (color_components[protocol->indices[component_ind]]), &val );
 
-                    uint8_t* location = base + ((index)*bpl) + component_ind;
+    //                 uint8_t* location = base + ((index)*bpl) + component_ind;
 
-                    *(location) = (uint8_t)val;                         // set value
-                    *(location) |= protocol->or_mask[component_ind];    // set mask
+    //                 *(location) = (uint8_t)val;                         // set value
+    //                 *(location) |= protocol->or_mask[component_ind];    // set mask
 
-                    // printf("component_ind = %d, final value = %d, location = 0x%X\n", component_ind, (uint8_t)(*location), (uint32_t)location );
-                }
-                // printf("\n");
+    //                 // printf("component_ind = %d, final value = %d, location = 0x%X\n", component_ind, (uint8_t)(*location), (uint32_t)location );
+    //             }
+    //             // printf("\n");
 
-            }else{
-                mp_raise_TypeError("Elements of 'colors' should be lists of integers\n");
-            }
-        }
-    }else{
-        mp_raise_TypeError("color should be a list of lists of integers\n");
-        return mp_const_none;
-    }
+    //         }else{
+    //             mp_raise_TypeError("Elements of 'colors' should be lists of integers\n");
+    //         }
+    //     }
+    // }else{
+    //     mp_raise_TypeError("color should be a list of lists of integers\n");
+    //     return mp_const_none;
+    // }
 
     return mp_const_none;
 }
 
 mp_obj_t addressable_fixture_artnet(mp_obj_t self_in, mp_obj_t bright ){
-    addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    // addressable_fixture_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
-    const modadd_protocol_t* protocol = modadd_protocols[self->protocol];
-    uint8_t     bpl = protocol->bpl;
+    mp_raise_ValueError("Fixture.artnet() is deprecated. layer-wise artnet support planned soon\n");
+    return mp_const_none;
+
+    // // const modadd_protocol_t* protocol = modadd_protocols[self->protocol];
+    // // uint8_t     bpl = protocol->bpl;
     
-    uint32_t fixture_leds = self->leds;
-    uint8_t*    base = self->data;
-    uint32_t artnet_ind = 0;
-    uint8_t color_arry[8];
+    // uint32_t fixture_leds = self->leds;
+    // // uint8_t*    base = self->data;
+    // uint32_t artnet_ind = 0;
+    // // uint8_t color_arry[8];
 
-    // map values need to be set so that: 
-    //  color_array[0] = red
-    //  color_array[0] = green
-    //  color_array[0] = blue
-    //  color_array[0] = alpha
+    // // map values need to be set so that: 
+    // //  color_array[0] = red
+    // //  color_array[0] = green
+    // //  color_array[0] = blue
+    // //  color_array[0] = alpha
 
-    const uint8_t map[8] = {0,1,2,3,4,5,6,7};
+    // // const uint8_t map[8] = {0,1,2,3,4,5,6,7};
 
-    uint8_t global = 0;
-    const uint8_t def_brightness = 15;
+    // uint8_t global = 0;
+    // const uint8_t def_brightness = 15;
 
-    if(!mp_obj_is_int(bright)){
-        global = def_brightness;
-    }else{
-        global = mp_obj_int_get_truncated(bright);
-    }
+    // if(!mp_obj_is_int(bright)){
+    //     global = def_brightness;
+    // }else{
+    //     global = mp_obj_int_get_truncated(bright);
+    // }
 
 
-    for(uint32_t led_ind = 0; led_ind < fixture_leds; led_ind++){
+    // for(uint32_t led_ind = 0; led_ind < fixture_leds; led_ind++){
 
-        artnet_packet.Data[artnet_ind];
+    //     artnet_packet.Data[artnet_ind];
 
-        // set component array in the rgba format...
+    //     // set component array in the rgba format...
 
-        // color_arry[0] = artnet_packet.Data[ artnet_ind + map[0] ];
-        // color_arry[1] = artnet_packet.Data[ artnet_ind + map[1] ];
-        // color_arry[2] = artnet_packet.Data[ artnet_ind + map[2] ];
-        // color_arry[3] = artnet_packet.Data[ artnet_ind + map[3] ];
+    //     // color_arry[0] = artnet_packet.Data[ artnet_ind + map[0] ];
+    //     // color_arry[1] = artnet_packet.Data[ artnet_ind + map[1] ];
+    //     // color_arry[2] = artnet_packet.Data[ artnet_ind + map[2] ];
+    //     // color_arry[3] = artnet_packet.Data[ artnet_ind + map[3] ];
         
-        // color_arry[3] = global;
-        // color_arry[4] = artnet_packet.Data[ artnet_ind + map[4] ];
-        // color_arry[5] = artnet_packet.Data[ artnet_ind + map[5] ];
-        // color_arry[6] = artnet_packet.Data[ artnet_ind + map[6] ];
-        // color_arry[7] = artnet_packet.Data[ artnet_ind + map[7] ];
+    //     // color_arry[3] = global;
+    //     // color_arry[4] = artnet_packet.Data[ artnet_ind + map[4] ];
+    //     // color_arry[5] = artnet_packet.Data[ artnet_ind + map[5] ];
+    //     // color_arry[6] = artnet_packet.Data[ artnet_ind + map[6] ];
+    //     // color_arry[7] = artnet_packet.Data[ artnet_ind + map[7] ];
 
 
-        // color_arry[0] = artnet_packet.Data[(artnet_ind*3)+2];
-        // color_arry[1] = artnet_packet.Data[(artnet_ind*3)+1];
-        // color_arry[2] = artnet_packet.Data[(artnet_ind*3)+0];
-        // color_arry[3] = global;
+    //     // color_arry[0] = artnet_packet.Data[(artnet_ind*3)+2];
+    //     // color_arry[1] = artnet_packet.Data[(artnet_ind*3)+1];
+    //     // color_arry[2] = artnet_packet.Data[(artnet_ind*3)+0];
+    //     // color_arry[3] = global;
 
 
-        // for( uint8_t component_ind = 0; component_ind < bpl; component_ind++ ){
-        //     uint8_t* location = base + ((led_ind)*bpl) + component_ind;
-        //     *(location) = color_arry[protocol->indices[component_ind]]; // set value
-        //     *(location) |= protocol->or_mask[component_ind];            // set mask
-        // }
+    //     // for( uint8_t component_ind = 0; component_ind < bpl; component_ind++ ){
+    //     //     uint8_t* location = base + ((led_ind)*bpl) + component_ind;
+    //     //     *(location) = color_arry[protocol->indices[component_ind]]; // set value
+    //     //     *(location) |= protocol->or_mask[component_ind];            // set mask
+    //     // }
 
-        self->data[led_ind*4 + 0] = 0xE0 | global;                             // todo: handle universes and follow the protocol of the given fixture
-        self->data[led_ind*4 + 1] = artnet_packet.Data[(artnet_ind*3)+0];
-        self->data[led_ind*4 + 2] = artnet_packet.Data[(artnet_ind*3)+1];
-        self->data[led_ind*4 + 3] = artnet_packet.Data[(artnet_ind*3)+2];
+    //     self->data[led_ind*4 + 0] = 0xE0 | global;                             // todo: handle universes and follow the protocol of the given fixture
+    //     self->data[led_ind*4 + 1] = artnet_packet.Data[(artnet_ind*3)+0];
+    //     self->data[led_ind*4 + 2] = artnet_packet.Data[(artnet_ind*3)+1];
+    //     self->data[led_ind*4 + 3] = artnet_packet.Data[(artnet_ind*3)+2];
 
-        artnet_ind++;
+    //     artnet_ind++;
 
-    }
+    // }
     return mp_const_none;
 }
 

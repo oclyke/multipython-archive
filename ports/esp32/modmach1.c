@@ -39,6 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "esp_log.h"
 #include "esp_spiram.h"
+#include "driver/gpio.h"
 
 
 #include "ota/wifi_sta.h"   // WIFI module configuration, connecting to an access point.
@@ -156,19 +157,180 @@ static const iap_https_config_t mach1_factory_ota_config = {
 };
 
 static iap_https_config_t ota_config; // the ota_config that can be modified by the user
-
-
 bool mach1_ota_initialized = false;
-
-
 static void init_ota( void );
 
+volatile bool mach1_initialized = false;
+
+#define MACH1_INSIG_BRK_PIN     (34)
+#define MACH1_INSIG_LTS_PIN     (35)
+#define MACH1_INSIG_RTS_PIN     (36)
+#define MACH1_INSIG_REV_PIN     (39)
+
+#define MACH1_USW1_PIN          (27)
+#define MACH1_USW2_PIN          (32)
+#define MACH1_USW3_PIN          (19)
+
+#define MACH1_INPUT_PINS_MASK ( \
+    1ULL<<MACH1_INSIG_BRK_PIN | \
+    1ULL<<MACH1_INSIG_LTS_PIN | \
+    1ULL<<MACH1_INSIG_RTS_PIN | \
+    1ULL<<MACH1_INSIG_REV_PIN | \
+    1ULL<<MACH1_USW1_PIN | \
+    1ULL<<MACH1_USW2_PIN | \
+    1ULL<<MACH1_USW3_PIN \
+    )
+
+#define ESP_INTR_FLAG_DEFAULT 0
+
+#define MACH1_COND_RISING_BRK   (0x1C1B)
+#define MACH1_COND_RISING_LTS   (0x1C1C)
+#define MACH1_COND_RISING_RTS   (0x1C1D)
+#define MACH1_COND_RISING_REV   (0x1C1E)
+
+#define MACH1_COND_FALLING_BRK  (0x1C0B)
+#define MACH1_COND_FALLING_LTS  (0x1C0C)
+#define MACH1_COND_FALLING_RTS  (0x1C0D)
+#define MACH1_COND_FALLING_REV  (0x1C0E)
+
+#define MACH1_COND_RISING_USW1   (0x1C11)
+#define MACH1_COND_RISING_USW2   (0x1C12)
+#define MACH1_COND_RISING_USW3   (0x1C13)
+
+#define MACH1_COND_FALLING_USW1   (0x1C01)
+#define MACH1_COND_FALLING_USW2   (0x1C02)
+#define MACH1_COND_FALLING_USW3   (0x1C03)
+
+typedef struct _m1_input_states_t{
+    bool brk;
+    bool lts;
+    bool rts;
+    bool rev;
+    bool sw1;
+    bool sw2;
+    bool sw3;
+    int64_t timestamp;
+}m1_input_states_t;
+
+volatile m1_input_states_t m1_input_state_previous;
+volatile m1_input_states_t m1_input_state_current = {   // initialize the current state to reflect the default (pull up/down) states of these inputs
+    .brk = false,
+    .lts = false,
+    .rts = false,
+    .rev = false,
+    .sw1 = true,
+    .sw2 = true,
+    .sw3 = true,
+    .timestamp = 0,
+};
+
+// // conditions:
+// const uint32_t m1_cond_brake_rising
+
+volatile bool isr_fired = false;
+
+extern mp_obj_t multipython_notify(mp_obj_t condition);
+IRAM_ATTR void mach1_gpio_input_isr( void*  args ){
+    // sample all the inputs and notify of any applicable conditions
+
+    int64_t current_time = esp_timer_get_time();
+
+    // with this being a 64-bit variable I just won't worry about overflow...
+    if( (current_time - m1_input_state_previous.timestamp) > (60*1000) ){
+
+        isr_fired = true;
+
+        m1_input_state_previous = m1_input_state_current;
+        m1_input_state_current.brk = gpio_get_level(MACH1_INSIG_BRK_PIN);
+        m1_input_state_current.lts = gpio_get_level(MACH1_INSIG_LTS_PIN);
+        m1_input_state_current.rts = gpio_get_level(MACH1_INSIG_RTS_PIN);
+        m1_input_state_current.rev = gpio_get_level(MACH1_INSIG_REV_PIN);
+        m1_input_state_current.sw1 = gpio_get_level(MACH1_USW1_PIN);
+        m1_input_state_current.sw2 = gpio_get_level(MACH1_USW2_PIN);
+        m1_input_state_current.sw3 = gpio_get_level(MACH1_USW3_PIN);
+        m1_input_state_current.timestamp = current_time;
+
+        // check for changes
+        if( m1_input_state_current.brk != m1_input_state_previous.brk ){
+            if( m1_input_state_current.brk ){ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_RISING_BRK)); }
+            else{ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_FALLING_BRK)); }
+        }
+        if( m1_input_state_current.lts != m1_input_state_previous.lts ){
+            if( m1_input_state_current.lts ){ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_RISING_LTS)); }
+            else{ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_FALLING_LTS)); }
+        }
+        if( m1_input_state_current.rts != m1_input_state_previous.rts ){
+            if( m1_input_state_current.rts ){ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_RISING_RTS)); }
+            else{ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_FALLING_RTS)); }
+        }
+        if( m1_input_state_current.rev != m1_input_state_previous.rev ){
+            if( m1_input_state_current.rev ){ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_RISING_REV)); }
+            else{ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_FALLING_REV)); }
+        }
+
+        if( m1_input_state_current.sw1 != m1_input_state_previous.sw1 ){
+            if( m1_input_state_current.sw1 ){ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_RISING_USW1)); }
+            else{ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_FALLING_USW1)); }
+        }
+        if( m1_input_state_current.sw2 != m1_input_state_previous.sw2 ){
+            if( m1_input_state_current.sw2 ){ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_RISING_USW2)); }
+            else{ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_FALLING_USW2)); }
+        }
+        if( m1_input_state_current.sw3 != m1_input_state_previous.sw3 ){
+            if( m1_input_state_current.sw3 ){ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_RISING_USW3)); }
+            else{ multipython_notify(MP_OBJ_NEW_SMALL_INT(MACH1_COND_FALLING_USW3)); }
+        }
+    }
+}
+
+mp_obj_t mach1__boot( void ){
+    // This is called from _boot.py to initialize the Mach1 board
+    if( mach1_initialized ){ return mp_const_none; }
+
+    esp_err_t retval = ESP_OK;
+
+    // Set up input signals
+    gpio_config_t insig_config = {0};
+    insig_config.pin_bit_mask = MACH1_INPUT_PINS_MASK;
+    insig_config.mode = GPIO_MODE_INPUT;
+    insig_config.pull_up_en = 0;
+    insig_config.pull_down_en = 0;
+    insig_config.intr_type = GPIO_INTR_ANYEDGE;
+
+    retval = gpio_config(&insig_config);
+    if( retval != ESP_OK ){
+        printf("error configuring input pins (%d)\n", retval);
+    }
+
+    retval = gpio_isr_handler_add(MACH1_INSIG_BRK_PIN, mach1_gpio_input_isr, NULL);
+    if( retval != ESP_OK ){
+        printf("error registering input ISR for pin %d (%d)\n",MACH1_INSIG_BRK_PIN, retval);
+    }
+
+    gpio_isr_handler_add(MACH1_INSIG_LTS_PIN, mach1_gpio_input_isr, NULL);
+    gpio_isr_handler_add(MACH1_INSIG_RTS_PIN, mach1_gpio_input_isr, NULL);
+    gpio_isr_handler_add(MACH1_INSIG_REV_PIN, mach1_gpio_input_isr, NULL);
+
+    gpio_isr_handler_add(MACH1_USW1_PIN, mach1_gpio_input_isr, NULL);
+    gpio_isr_handler_add(MACH1_USW2_PIN, mach1_gpio_input_isr, NULL);
+    gpio_isr_handler_add(MACH1_USW3_PIN, mach1_gpio_input_isr, NULL);
+
+    // while(1){
+    //     if( isr_fired ){
+    //         printf("isr: %d, %d, %d, %d, %d, %d, %d, time difference: 0x%08X%08X\n",m1_input_state_current.brk, m1_input_state_current.lts, m1_input_state_current.rts, m1_input_state_current.rev, m1_input_state_current.sw1, m1_input_state_current.sw2, m1_input_state_current.sw3, (uint32_t)((m1_input_state_current.timestamp - m1_input_state_previous.timestamp) >> 32), (uint32_t)((m1_input_state_current.timestamp - m1_input_state_previous.timestamp) & 0xFFFFFFFF));
+    //         vTaskDelay(50/portTICK_PERIOD_MS);
+    //         isr_fired = false;
+    //     }
+    // }
+
+    mach1_initialized = true;
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(mach1__boot_obj, mach1__boot);
 
 
 // interface 
 STATIC mp_obj_t mach1_system(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args){
-    // start new processes (contexts)
-
 
 #if CONFIG_SPIRAM_SUPPORT
     switch (esp_spiram_get_chip_size()) {
@@ -319,6 +481,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mach1_firmware_obj, 0, mach1_firmware);
 
 STATIC const mp_rom_map_elem_t mp_module_mach1_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_mach1) },
+    { MP_ROM_QSTR(MP_QSTR__boot), MP_ROM_PTR(&mach1__boot_obj) },
     { MP_ROM_QSTR(MP_QSTR_system), MP_ROM_PTR(&mach1_system_obj) },
     { MP_ROM_QSTR(MP_QSTR_firmware), MP_ROM_PTR(&mach1_firmware_obj) },
     // { MP_ROM_QSTR(MP_QSTR_start), MP_ROM_PTR(&multipython_start_obj) },
@@ -326,6 +489,24 @@ STATIC const mp_rom_map_elem_t mp_module_mach1_globals_table[] = {
     // { MP_ROM_QSTR(MP_QSTR_suspend), MP_ROM_PTR(&multipython_suspend_obj) },
     // { MP_ROM_QSTR(MP_QSTR_resume), MP_ROM_PTR(&multipython_resume_obj) },
     // { MP_ROM_QSTR(MP_QSTR_get), MP_ROM_PTR(&multipython_get_obj) },
+
+    { MP_ROM_QSTR(MP_QSTR_RISING_BRK), MP_ROM_INT(MACH1_COND_RISING_BRK) },
+    { MP_ROM_QSTR(MP_QSTR_RISING_LTS), MP_ROM_INT(MACH1_COND_RISING_LTS) },
+    { MP_ROM_QSTR(MP_QSTR_RISING_RTS), MP_ROM_INT(MACH1_COND_RISING_RTS) },
+    { MP_ROM_QSTR(MP_QSTR_RISING_REV), MP_ROM_INT(MACH1_COND_RISING_REV) },
+
+    { MP_ROM_QSTR(MP_QSTR_FALLING_BRK), MP_ROM_INT(MACH1_COND_FALLING_BRK) },
+    { MP_ROM_QSTR(MP_QSTR_FALLING_LTS), MP_ROM_INT(MACH1_COND_FALLING_LTS) },
+    { MP_ROM_QSTR(MP_QSTR_FALLING_RTS), MP_ROM_INT(MACH1_COND_FALLING_RTS) },
+    { MP_ROM_QSTR(MP_QSTR_FALLING_REV), MP_ROM_INT(MACH1_COND_FALLING_REV) },
+
+    { MP_ROM_QSTR(MP_QSTR_RISING_USW1), MP_ROM_INT(MACH1_COND_RISING_USW1) },
+    { MP_ROM_QSTR(MP_QSTR_RISING_USW2), MP_ROM_INT(MACH1_COND_RISING_USW2) },
+    { MP_ROM_QSTR(MP_QSTR_RISING_USW3), MP_ROM_INT(MACH1_COND_RISING_USW3) },
+
+    { MP_ROM_QSTR(MP_QSTR_FALLING_USW1), MP_ROM_INT(MACH1_COND_FALLING_USW1) },
+    { MP_ROM_QSTR(MP_QSTR_FALLING_USW2), MP_ROM_INT(MACH1_COND_FALLING_USW2) },
+    { MP_ROM_QSTR(MP_QSTR_FALLING_USW3), MP_ROM_INT(MACH1_COND_FALLING_USW3) },
 };
 STATIC MP_DEFINE_CONST_DICT(mp_module_mach1_globals, mp_module_mach1_globals_table);
 
