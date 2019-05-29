@@ -110,7 +110,7 @@ esp_err_t sdmmc_init_device( sdmmc_storage_device_t* dev, const sdmmc_host_t* ho
 }
 
 STATIC mp_obj_t sdmmc_init(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args){
-    if(sdmmc_dev_initialized == true ){ return mp_const_none; }
+    if(sdmmc_dev_initialized == true ){ return mp_const_true; }
 
     // set up args
     enum { ARG_use_mmc, ARG_miso, ARG_mosi, ARG_sclk, ARG_cs /*, ARG_dma_chan*/ };
@@ -171,11 +171,12 @@ STATIC mp_obj_t sdmmc_init(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw
         err = sdmmc_init_device( dev, &sdspi_default_host_config, (void*)&slot );
     }
     if( err != ESP_OK ){
-        mp_raise_OSError(MP_ENODEV);
+        // mp_raise_OSError(MP_ENODEV);
+        return mp_const_none;
     }
     sdmmc_card_print_info(stdout, &dev->card);
     sdmmc_dev_initialized = true;
-    return mp_const_none;
+    return mp_const_true;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(sdmmc_init_obj, 0, sdmmc_init);
 

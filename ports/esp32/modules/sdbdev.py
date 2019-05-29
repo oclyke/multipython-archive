@@ -8,9 +8,14 @@ class SDBdev:
     def __init__(self):
         # # put code here like starting the io functions
         # print('SDBdev init called')
-        sdmmc.init()
-        self.blocks = sdmmc.get_num_blocks()
-        self.sec_size = sdmmc.get_block_size()
+        status = sdmmc.init()
+        if(status == True):
+            self.blocks = sdmmc.get_num_blocks()
+            self.sec_size = sdmmc.get_block_size()
+        else:
+            # print('SD Block Device Not Initialized')
+            self.blocks = 0
+            self.sec_size = 512
 
 
     def readblocks(self, n, buf):
