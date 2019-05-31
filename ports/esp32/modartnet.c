@@ -66,17 +66,19 @@ The artnet module is designed to facilitate processing of ArtNet packets
 // and for c espose a similar structure... and maybe allow for a linked list of callback functions
 
 
-#define ARTNET_ITER_FROM_CALLBACK_PTR(ptr) ((artnet_callback_node_iter_t)ptr)
-#define ARTNET_CALLBACK_PTR_FROM_ITER(iter) ((artnet_callback_node_t*)iter)
+// #define ARTNET_ITER_FROM_CALLBACK_PTR(ptr) ((artnet_callback_node_iter_t)ptr)
+// #define ARTNET_CALLBACK_PTR_FROM_ITER(iter) ((artnet_callback_node_t*)iter)
 
 
-volatile artnet_packet_t    artnet_packet; // todo: make sure this is in RAM?
-artnet_callback_node_t*     artnet_callbacks_head;
+volatile artnet_packet_t    rx_artnet_packet; // todo: make sure this is in RAM?
+// artnet_callback_node_t*     artnet_callbacks_head;
 xTaskHandle                 artnet_task_handle;
 static int                  artnet_initialized = 0;
-static const char*          TAG = "example";
+static const char*          TAG = "modartnet";
 
-typedef artnet_callback_node_t* artnet_callback_node_iter_t;
+addressable_layer_artdmx_info_node_t*   artdmx_info_head = NULL;    // head of the LL of artdmx info nodes, for any layer
+
+// typedef artnet_callback_node_t* artnet_callback_node_iter_t;
 
 
 
@@ -84,32 +86,32 @@ typedef artnet_callback_node_t* artnet_callback_node_iter_t;
 STATIC mp_obj_t artnet_get_network_interface_active_fn( mp_obj_t interface );
 STATIC mp_obj_t artnet_network_interface_active( mp_obj_t interface_active_fn );
 STATIC mp_obj_t artnet_interface_activate( mp_obj_t interface_active_fn );
-void artnet_call_callback_helper( artnet_callback_node_iter_t iter, void* args );
-void artnet_callback_foreach(artnet_callback_node_iter_t head, void (*f)(artnet_callback_node_iter_t iter, void*), void* args);
+// void artnet_call_callback_helper( artnet_callback_node_iter_t iter, void* args );
+// void artnet_callback_foreach(artnet_callback_node_iter_t head, void (*f)(artnet_callback_node_iter_t iter, void*), void* args);
 static void artnet_server_task(void *pvParameters);
 
 
-void artnet_debug_callback_helper( artnet_callback_node_iter_t iter, void* args );
+// void artnet_debug_callback_helper( artnet_callback_node_iter_t iter, void* args );
 
 
 
 
-int8_t artnet_add_callback_c_args( artnet_callback_args_t cb, void* args ){
-    if( cb == NULL ){ return -1; }
-    printf("Here??\n" ); 
-    artnet_callback_node_t* node = artnet_append_callback_node();
-    if( node == NULL ){ return -1; }
-    printf("Adding callback 0x%08X\n", (uint32_t)cb ); 
-    node->c_callback = cb;
-    node->args = args;
+// int8_t artnet_add_callback_c_args( artnet_callback_args_t cb, void* args ){
+//     if( cb == NULL ){ return -1; }
+//     printf("Here??\n" ); 
+//     artnet_callback_node_t* node = artnet_append_callback_node();
+//     if( node == NULL ){ return -1; }
+//     printf("Adding callback 0x%08X\n", (uint32_t)cb ); 
+//     node->c_callback = cb;
+//     node->args = args;
 
-// int artnet_remove_callback_node( artnet_callback_node_t* node );
-    return 0;
-}
+// // int artnet_remove_callback_node( artnet_callback_node_t* node );
+//     return 0;
+// }
 
-int8_t artnet_add_callback_c( artnet_callback_t cb ){
-    return artnet_add_callback_c_args( (artnet_callback_args_t)cb, NULL ); // todo: is this kind of thing legal??? calling conventions?
-}
+// int8_t artnet_add_callback_c( artnet_callback_t cb ){
+//     return artnet_add_callback_c_args( (artnet_callback_args_t)cb, NULL ); // todo: is this kind of thing legal??? calling conventions?
+// }
 
 
 
@@ -179,32 +181,32 @@ mp_obj_t artnet_stop( void ) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(artnet_stop_obj, artnet_stop);
 
-mp_obj_t artnet_add_callback( mp_obj_t callback ){
-    if( !callback ){ return mp_const_none; }
-    mp_printf(&mp_plat_print, "Here??\n" ); 
-    artnet_callback_node_t* node = artnet_append_callback_node();
-    if( node == NULL ){ return mp_const_none; }
-    mp_printf(&mp_plat_print, "Adding callback 0x%08X\n", (uint32_t)node ); 
-    node->p_callback = callback;
-    node->p_context = mp_active_contexts[MICROPY_GET_CORE_INDEX]; // store the context from which this callback was registered
+// mp_obj_t artnet_add_callback( mp_obj_t callback ){
+//     if( !callback ){ return mp_const_none; }
+//     mp_printf(&mp_plat_print, "Here??\n" ); 
+//     artnet_callback_node_t* node = artnet_append_callback_node();
+//     if( node == NULL ){ return mp_const_none; }
+//     mp_printf(&mp_plat_print, "Adding callback 0x%08X\n", (uint32_t)node ); 
+//     node->p_callback = callback;
+//     node->p_context = mp_active_contexts[MICROPY_GET_CORE_INDEX]; // store the context from which this callback was registered
 
-// int artnet_remove_callback_node( artnet_callback_node_t* node );
-    return callback;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(artnet_add_callback_obj, artnet_add_callback);
+// // int artnet_remove_callback_node( artnet_callback_node_t* node );
+//     return callback;
+// }
+// STATIC MP_DEFINE_CONST_FUN_OBJ_1(artnet_add_callback_obj, artnet_add_callback);
 
-mp_obj_t artnet_show_callbacks( void ){
-    // artnet_callback_foreach( artnet_callbacks_head, artnet_call_callback_helper, NULL );
-    artnet_callback_foreach( artnet_callbacks_head, artnet_debug_callback_helper, NULL );
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(artnet_show_callbacks_obj, artnet_show_callbacks);
+// mp_obj_t artnet_show_callbacks( void ){
+//     // artnet_callback_foreach( artnet_callbacks_head, artnet_call_callback_helper, NULL );
+//     artnet_callback_foreach( artnet_callbacks_head, artnet_debug_callback_helper, NULL );
+//     return mp_const_none;
+// }
+// STATIC MP_DEFINE_CONST_FUN_OBJ_0(artnet_show_callbacks_obj, artnet_show_callbacks);
 
-mp_obj_t artnet_call_callbacks( void ){
-    artnet_callback_foreach( artnet_callbacks_head, artnet_call_callback_helper, NULL );
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(artnet_call_callbacks_obj, artnet_call_callbacks);
+// mp_obj_t artnet_call_callbacks( void ){
+//     artnet_callback_foreach( artnet_callbacks_head, artnet_call_callback_helper, NULL );
+//     return mp_const_none;
+// }
+// STATIC MP_DEFINE_CONST_FUN_OBJ_0(artnet_call_callbacks_obj, artnet_call_callbacks);
 
 
 // Module Definitions
@@ -212,9 +214,11 @@ STATIC const mp_rom_map_elem_t mp_module_artnet_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_artnet) },
     { MP_ROM_QSTR(MP_QSTR_start), MP_ROM_PTR(&artnet_start_obj) },
     { MP_ROM_QSTR(MP_QSTR_stop), MP_ROM_PTR(&artnet_stop_obj) },
-    { MP_ROM_QSTR(MP_QSTR_add_callback), MP_ROM_PTR(&artnet_add_callback_obj) },
-    { MP_ROM_QSTR(MP_QSTR_show_callbacks), MP_ROM_PTR(&artnet_show_callbacks_obj) },
-    { MP_ROM_QSTR(MP_QSTR_call_callbacks), MP_ROM_PTR(&artnet_call_callbacks_obj) },
+
+    { MP_ROM_QSTR(MP_QSTR_new_layer_artdmx_info),  MP_ROM_PTR(&addressable_layer_artdmx_infoObj_type) },
+    // { MP_ROM_QSTR(MP_QSTR_add_callback), MP_ROM_PTR(&artnet_add_callback_obj) },
+    // { MP_ROM_QSTR(MP_QSTR_show_callbacks), MP_ROM_PTR(&artnet_show_callbacks_obj) },
+    // { MP_ROM_QSTR(MP_QSTR_call_callbacks), MP_ROM_PTR(&artnet_call_callbacks_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(mp_module_artnet_globals, mp_module_artnet_globals_table);
 
@@ -279,7 +283,7 @@ static void artnet_server_task(void *pvParameters)
             // ESP_LOGI(TAG, "Waiting for data");
             struct sockaddr_in6 sourceAddr; // Large enough for both IPv4 or IPv6
             socklen_t socklen = sizeof(sourceAddr);
-            int len = recvfrom(sock, (void*)&artnet_packet, sizeof(artnet_packet), 0, (struct sockaddr *)&sourceAddr, &socklen);
+            int len = recvfrom(sock, (void*)&rx_artnet_packet, sizeof(rx_artnet_packet), 0, (struct sockaddr *)&sourceAddr, &socklen);
 
             // Error occured during receiving
             if (len < 0) {
@@ -295,8 +299,91 @@ static void artnet_server_task(void *pvParameters)
                     inet6_ntoa_r(sourceAddr.sin6_addr, addr_str, sizeof(addr_str) - 1);
                 }
 
-                // Call callbacks!
-                artnet_callback_foreach( artnet_callbacks_head, artnet_call_callback_helper, NULL );
+                // Check the artnet packet header to ensure that the packet is valid:
+                if( strcmp((const char*)&rx_artnet_packet.ID, "Art-Net") != 0 ){
+                    // ESP_LOGI(TAG, "ArtNet packet ID failed");
+                    continue; // bail b/c ID does not match Art-Net ID
+                }
+
+                // Check the op-code to ensure this is a ArtDMX packet:
+                if( ((rx_artnet_packet.OpCode.OpCodeBytes.OpCodeHi << 8) | (rx_artnet_packet.OpCode.OpCodeBytes.OpCodeLo & 0xFF)) != 0x5000 ){
+                    // ESP_LOGI(TAG, "ArtNet ArtDMX OpCode failed");
+                    continue; // bail b/c this is not good ArtDMX data
+                }
+
+                // Check the protocol version:
+                if( ((rx_artnet_packet.ProtVer.ProtVerBytes.ProtVerHi << 8) | (rx_artnet_packet.ProtVer.ProtVerBytes.ProtVerLo & 0xFF)) < 14 ){
+                    // ESP_LOGI(TAG, "ArtNet ProtVer failed");
+                    continue; // bail w/o notifying application of new data
+                }
+
+                // The following fields are not checked:
+                // Sequence
+                // Physical
+                // Port Address (Net and SubUni)
+
+                // Check Length
+                uint16_t rxPacketLength = ((rx_artnet_packet.Length.LengthBytes.LengthHi << 8) | (rx_artnet_packet.Length.LengthBytes.LengthLo & 0xFF));
+                if( rxPacketLength > 512 ){
+                    // ESP_LOGI(TAG, "ArtNet ArtDMX Length failed");
+                    continue; // bail w/o notifying application of new data 
+                }
+
+                uint16_t portAddress = ((rx_artnet_packet.Net<<8) | (rx_artnet_packet.SubUni & 0xFF));
+                // printf("we got a valid packet! portAddress = 0x%08X\n", ((rx_artnet_packet.Net<<8) | (rx_artnet_packet.SubUni & 0xFF)) );
+
+                // If we've made it here distribute this data to any linked fixture layers:
+                // That means searching through all layers of all fixtures... wait that's not efficient! Grr...
+                // okay I've changed it so that all artdmx info nodes get put into one LL with the head at artdmx_info_head
+                addressable_layer_artdmx_info_node_iter_t iter = NULL;
+                for( iter = addressable_layer_artdmx_info_first(artdmx_info_head); !addressable_layer_artdmx_info_done(iter); iter = addressable_layer_artdmx_info_next(iter) ){ 
+                    
+                    // printf("\tchecking dmx info at 0x%08X: portAddress = 0x%08X, layer = 0x%08X\n", (uint32_t)iter, (uint32_t)ADDRESSABLE_LAYER_ARTDMX_INFO_PTR_FROM_ITER(iter)->artdmx_info->portAddress, (uint32_t)ADDRESSABLE_LAYER_ARTDMX_INFO_PTR_FROM_ITER(iter)->artdmx_info->layer );
+
+                    if(ADDRESSABLE_LAYER_ARTDMX_INFO_PTR_FROM_ITER(iter)->artdmx_info->portAddress == portAddress){
+                        // If the port address matches then try to put led data into the layer data
+                        addressable_layer_obj_t* layer = ADDRESSABLE_LAYER_ARTDMX_INFO_PTR_FROM_ITER(iter)->artdmx_info->layer;
+
+
+                        if(layer == NULL){ continue; } // bail out b/c invalid layer
+                        uint8_t cpl = ADDRESSABLE_LAYER_ARTDMX_INFO_PTR_FROM_ITER(iter)->artdmx_info->cpl;
+                        uint16_t start_channel = ADDRESSABLE_LAYER_ARTDMX_INFO_PTR_FROM_ITER(iter)->artdmx_info->start_channel;
+                        uint16_t max_channels = 512 - start_channel;
+                        uint16_t num_leds = ADDRESSABLE_LAYER_ARTDMX_INFO_PTR_FROM_ITER(iter)->artdmx_info->leds;
+                        uint16_t start_led = ADDRESSABLE_LAYER_ARTDMX_INFO_PTR_FROM_ITER(iter)->artdmx_info->start_index;
+                        uint16_t num_channels = num_leds*cpl;
+                        if( num_channels > rxPacketLength ){
+                            num_channels = rxPacketLength;
+                        }
+                        num_leds = num_channels/cpl; // integer division to find the new number of leds, which won't violate the DMX packet size
+
+                        // printf("\t\tgot a match! layer = 0x%08X, cpl = %d, num_leds = %d\n", (uint32_t)layer, cpl, num_leds);
+
+                        if( cpl != 3 && cpl !=4 ){ continue; } // bail out for unrecognized format (RGB or RGBA only!)
+
+                        // printf("\t\t\tmih!\n");
+
+                        // copy the data into the layer
+                        uint8_t* dst = layer->data;
+                        uint8_t* src = (uint8_t*)rx_artnet_packet.Data;
+                        for(uint16_t indi = 0; indi < num_leds; indi++){
+                            *(dst + (MODADD_BPL*(indi + start_led) + 0)) = *(src + (cpl * indi) + start_channel + 0);
+                            *(dst + (MODADD_BPL*(indi + start_led) + 1)) = *(src + (cpl * indi) + start_channel + 1);
+                            *(dst + (MODADD_BPL*(indi + start_led) + 2)) = *(src + (cpl * indi) + start_channel + 2);
+                            if( cpl > 3 ){
+                                *(dst + (MODADD_BPL*(indi + start_led) + 3)) = *(src + (cpl * indi) + start_channel + 3);
+                            }else{
+                                *(dst + (MODADD_BPL*(indi + start_led) + 3)) = 0; // for now default to fully transparent
+                            }
+                        }
+                    }
+                }
+
+
+
+
+                // // Call callbacks!
+                // artnet_callback_foreach( artnet_callbacks_head, artnet_call_callback_helper, NULL );
 
 
 
@@ -413,104 +500,132 @@ STATIC mp_obj_t artnet_interface_activate( mp_obj_t interface_active_fn ){
 
 
 
-artnet_callback_node_iter_t artnet_callback_iter_first( artnet_callback_node_iter_t head ){ return head; }
-bool artnet_callback_iter_done( artnet_callback_node_iter_t iter ){ return (iter == NULL); }
-artnet_callback_node_iter_t artnet_callback_iter_next( artnet_callback_node_iter_t iter ){ return (ARTNET_CALLBACK_PTR_FROM_ITER(iter)->next); }
-void artnet_callback_foreach(artnet_callback_node_iter_t head, void (*f)(artnet_callback_node_iter_t iter, void*), void* args){
+
+
+
+// STATIC mp_obj_t addressable_layer_mode(mp_obj_t self_in, mp_obj_t mode);
+// MP_DEFINE_CONST_FUN_OBJ_2(addressable_layer_mode_obj, addressable_layer_mode);
+
+// STATIC mp_obj_t addressable_layer_set(mp_obj_t self_in, mp_obj_t start_index_obj, mp_obj_t colors);
+// MP_DEFINE_CONST_FUN_OBJ_3(addressable_layer_set_obj, addressable_layer_set);
+
+STATIC void addressable_layer_artdmx_info_print( const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind );
+
+STATIC const mp_rom_map_elem_t addressable_layer_artdmx_info_locals_dict_table[] = {
+    // { MP_ROM_QSTR(MP_QSTR_mode), MP_ROM_PTR(&addressable_layer_mode_obj) },
+    // { MP_ROM_QSTR(MP_QSTR_set), MP_ROM_PTR(&addressable_layer_set_obj) },
+ };
+STATIC MP_DEFINE_CONST_DICT(addressable_layer_artdmx_info_locals_dict, addressable_layer_artdmx_info_locals_dict_table);
+
+// define the layer artdmx info class-object
+const mp_obj_type_t addressable_layer_artdmx_infoObj_type = {
+    { &mp_type_type },                                                          // "inherit" the type "type"
+    .name = MP_QSTR_layer_artdmx_infoObj,                                       // give it a name
+    .print = addressable_layer_artdmx_info_print,                               // give it a print-function
+    .make_new = addressable_layer_artdmx_info_make_new,                         // give it a constructor
+    .locals_dict = (mp_obj_dict_t*)&addressable_layer_artdmx_info_locals_dict,  // and the global members
+};
+
+
+mp_obj_t addressable_layer_artdmx_info_make_new( const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args ) {
+    enum { ARG_leds, ARG_universe, ARG_start_index, ARG_start_channel, ARG_cpl, ARG_layer };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_leds,             MP_ARG_INT,                     {.u_int = 0} },
+        { MP_QSTR_universe,         MP_ARG_INT,                     {.u_int = 0} },
+        { MP_QSTR_start_index,      MP_ARG_INT,                     {.u_int = 0} },
+        { MP_QSTR_start_channel,    MP_ARG_INT,                     {.u_int = 0} },
+        { MP_QSTR_cpl,              MP_ARG_INT,                     {.u_int = 3} }, // pass in 4 if you want alpha to be supplied by the artdmx stream as well
+        { MP_QSTR_layer,            MP_ARG_OBJ,                     {.u_obj = mp_const_none} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+    
+    // // this checks the number of arguments (min 1, max 1);
+    // // on error -> raise python exception
+    // mp_arg_check_num(n_args, n_kw, 1, 1, true);
+
+    // Allocate using the system allocator because we don't want micropython to be in charge of this allocation
+    // create a new object of our C-struct type
+    addressable_layer_artdmx_info_obj_t *self = (addressable_layer_artdmx_info_obj_t*)ARTNET_MALLOC(1*sizeof(addressable_layer_artdmx_info_obj_t));
+    if( self == NULL ){
+        mp_raise_OSError(MP_ENOMEM);
+        return mp_const_none; 
+    }
+    memset((void*)self, 0x00, sizeof(addressable_layer_artdmx_info_obj_t));
+    self->base.type = &addressable_layer_artdmx_infoObj_type; // give it a type
+    self->leds = args[ARG_leds].u_int;
+    self->portAddress = args[ARG_universe].u_int;
+    self->start_index = args[ARG_start_index].u_int;
+    self->start_channel = args[ARG_start_channel].u_int;
+    self->cpl = args[ARG_cpl].u_int;
+    self->layer = args[ARG_layer].u_obj;
+
+    // printf("created dmx info object with: leds = %d, portAddress = %d, start_index = %d, start_channel = %d, layer = 0x%08X\n",self->leds, self->portAddress, self->start_index, self->start_channel, (uint32_t)self->layer);
+    
+    return MP_OBJ_FROM_PTR(self);
+}
+
+STATIC void addressable_layer_artdmx_info_print( const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind ) {
+    // get a ptr to the C-struct of the object
+    addressable_layer_artdmx_info_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    printf ("Layer ArtDMX Info class object for universe %d\n", self->portAddress );
+}
+
+
+
+
+addressable_layer_artdmx_info_node_iter_t addressable_layer_artdmx_info_first( addressable_layer_artdmx_info_node_iter_t head ){ return head; }
+bool addressable_layer_artdmx_info_done( addressable_layer_artdmx_info_node_iter_t iter ){ return (iter == NULL); }
+addressable_layer_artdmx_info_node_iter_t addressable_layer_artdmx_info_next( addressable_layer_artdmx_info_node_iter_t iter ){ return (ADDRESSABLE_LAYER_ARTDMX_INFO_PTR_FROM_ITER(iter)->next); }
+void addressable_layer_artdmx_info_foreach(addressable_layer_artdmx_info_node_iter_t head, void (*f)(addressable_layer_artdmx_info_node_iter_t iter, void*), void* args){
     if( head == NULL ){ return; }
     if(f == NULL){ return; }
-    artnet_callback_node_iter_t iter = NULL;
-    for( iter = artnet_callback_iter_first(head); !artnet_callback_iter_done(iter); iter = artnet_callback_iter_next(iter) ){ 
+    addressable_layer_artdmx_info_node_iter_t iter = NULL;
+    for( iter = addressable_layer_artdmx_info_first(head); !addressable_layer_artdmx_info_done(iter); iter = addressable_layer_artdmx_info_next(iter) ){ 
         f(iter, args); 
     }
 }
 
-artnet_callback_node_t* artnet_new_callback_node( void ){
-    artnet_callback_node_t* node = NULL;
-    node = (artnet_callback_node_t*)ARTNET_MALLOC(1*sizeof(artnet_callback_node_t));
+addressable_layer_artdmx_info_node_t* addressable_layer_artdmx_new_info_node( void ){
+    addressable_layer_artdmx_info_node_t* node = NULL;
+    node = (addressable_layer_artdmx_info_node_t*)ARTNET_MALLOC(1*sizeof(addressable_layer_artdmx_info_node_t));
     if(node == NULL){ return node; }
-    memset((void*)node, 0x00, sizeof(artnet_callback_node_t));
+    memset((void*)node, 0x00, sizeof(addressable_layer_artdmx_info_node_t));
     return node;
 }
 
-artnet_callback_node_t* artnet_callback_predecessor( artnet_callback_node_t* successor ){
-    artnet_callback_node_iter_t iter = NULL;
-    for( iter = artnet_callback_iter_first(ARTNET_ITER_FROM_CALLBACK_PTR(artnet_callbacks_head)); !artnet_callback_iter_done(iter); iter = artnet_callback_iter_next(iter) ){
-        if(ARTNET_CALLBACK_PTR_FROM_ITER(iter)->next == successor){ break; }
+addressable_layer_artdmx_info_node_t* addressable_layer_artdmx_info_node_predecessor( addressable_layer_artdmx_info_node_iter_t base, addressable_layer_artdmx_info_node_t* successor ){
+    addressable_layer_artdmx_info_node_iter_t iter = NULL;
+    if( base == NULL ){ return NULL; }
+    for( iter = addressable_layer_artdmx_info_first(ADDRESSABLE_LAYER_ITER_FROM_ARTDMX_INFO_PTR( base )); !addressable_layer_artdmx_info_done(iter); iter = addressable_layer_artdmx_info_next(iter) ){
+        if(ADDRESSABLE_LAYER_ARTDMX_INFO_PTR_FROM_ITER(iter)->next == successor){ break; }
     }
-    return ARTNET_CALLBACK_PTR_FROM_ITER(iter);
+    return ADDRESSABLE_LAYER_ARTDMX_INFO_PTR_FROM_ITER(iter);
 }
 
-artnet_callback_node_t* artnet_callback_tail( void ){
-    return artnet_callback_predecessor(NULL);
+addressable_layer_artdmx_info_node_t* addressable_layer_artdmx_info_node_tail( addressable_layer_artdmx_info_node_iter_t base ){
+    return addressable_layer_artdmx_info_node_predecessor(base, NULL);
 }
 
-artnet_callback_node_t* artnet_append_callback_node( void ){
-    artnet_callback_node_t* node = artnet_new_callback_node();
-    if( node == NULL ){ return node; }
-    artnet_callback_node_t* tail = artnet_callback_tail();
-    if( artnet_callbacks_head == NULL ){
-        artnet_callbacks_head = node;
-    }else{
-        tail->next = node;
-    }
-    return node;
-}
-
-int artnet_remove_callback_node( artnet_callback_node_t* node ){
+int8_t addressable_layer_artdmx_info_node_append( addressable_layer_artdmx_info_node_iter_t base, addressable_layer_artdmx_info_node_t* node ){
     if( node == NULL ){ return -1; }
-    if( artnet_callbacks_head == node ){
-        artnet_callbacks_head = node->next;
-    }else{
-        artnet_callback_node_t* predecessor = artnet_callback_predecessor( node );
-        if( predecessor == NULL ){ return -1; }
-        artnet_callback_node_t* successor = NULL;
-        successor = node->next;
-        predecessor->next = successor;
-    }
-    ARTNET_FREE( node );
+    node->next = NULL;
+    addressable_layer_artdmx_info_node_t* tail = addressable_layer_artdmx_info_node_tail(base);
+    if(tail == NULL){ return -1; }
+    tail->next = node;
     return 0;
 }
 
-void artnet_call_callback_helper( artnet_callback_node_iter_t iter, void* args ){
-    // args will probably be NULL, all info is within the iterator
-    artnet_callback_node_t* node = ARTNET_CALLBACK_PTR_FROM_ITER(iter);
-    if( node == NULL ){ return; }
-    if( node->c_callback ){
-        // Call the c callback
-        node->c_callback( node->args );
-    }else if( node->p_callback ){ // for now we're skipping python callbacks
-        // if( node->p_context ){
-        // // if( mp_obj_is_type( node->p_callback, &mp_type_fun_builtin_0) ){
-        //     printf("calling!!\n");
-        //     mp_context_switch(node->p_context);
-        //     // mp_obj_t res = mp_call_function_0(node->p_callback);
-        //     mp_call_function_0(node->p_callback);
-        // // }
-        // }
-    }
+// addressable_layer_artdmx_info_node_t* addressable_layer_artdmx_info_append( addressable_layer_artdmx_info_node_iter_t base, addressable_layer_artdmx_info_obj_t* info ){
+//     addressable_layer_artdmx_info_node_t* node = addressable_layer_artdmx_new_info_node();
+//     if( node == NULL ){ return node; }
+//     node->artdmx_info = info;
+//     node->next = NULL;
+//     addressable_layer_artdmx_info_node_t* tail = addressable_layer_artdmx_info_node_tail(base);
+//     tail->next = node;
+//     return node;
+// }
 
-    // Note: todo: maybe necessary to switch into the MultiPython context from which the callback was added
-    // mp_context_switch(node->p_context);
-}
-
-void artnet_debug_callback_helper( artnet_callback_node_iter_t iter, void* args ){
-
-    printf("Callback node at 0x%08X\n", (uint32_t)iter);
-    artnet_callback_node_t* node = ARTNET_CALLBACK_PTR_FROM_ITER(iter);
-    if(node == NULL){
-        printf("Node is null? what?\n");
-        return; 
-    }
-    printf("c_callback: 0x%08X\n", (uint32_t)node->c_callback);
-    printf("p_callback: 0x%08X\n", (uint32_t)node->p_callback);
-    printf("p_context: 0x%08X\n", (uint32_t)node->p_context);
-    if( node->p_context != NULL ){ printf("\tp_context->id: %d\n", (uint32_t)node->p_context->id); }
-    printf("args: 0x%08X\n", (uint32_t)node->args);
-    printf("next: 0x%08X\n", (uint32_t)node->next);
-    printf("\n");
-
-}
 
 
 

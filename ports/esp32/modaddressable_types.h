@@ -81,6 +81,18 @@ struct _moadd_layer_node_t{         // linked list of layers
     modadd_layer_node_t*    next;   // points at the next node in the linked list 
 };
 
+typedef struct _addressable_layer_artdmx_info_obj_t addressable_layer_artdmx_info_obj_t;
+
+typedef struct _addressable_layer_artdmx_info_node_t addressable_layer_artdmx_info_node_t;
+
+struct _addressable_layer_artdmx_info_node_t{
+    addressable_layer_artdmx_info_obj_t*    artdmx_info;    
+    addressable_layer_artdmx_info_node_t*   next;           // the next node in this linked list
+};
+typedef addressable_layer_artdmx_info_node_t* addressable_layer_artdmx_info_node_iter_t;
+
+#define ADDRESSABLE_LAYER_ARTDMX_INFO_PTR_FROM_ITER(iter)   ((addressable_layer_artdmx_info_node_t*)iter)
+#define ADDRESSABLE_LAYER_ITER_FROM_ARTDMX_INFO_PTR(ptr)    ((addressable_layer_artdmx_info_node_iter_t)ptr)
 
 ///////////////////////////////////////////////////////////////////////////
 /* Fixture Types                                                         */

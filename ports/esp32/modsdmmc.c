@@ -131,7 +131,7 @@ STATIC mp_obj_t sdmmc_init(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw
     esp_err_t err = ESP_OK;
     sdmmc_storage_device_t* dev = &sdmmc_dev;
     if( mp_obj_is_true( args[ARG_use_mmc].u_obj ) ){
-        printf("Using SDMMC interface");
+        printf("Using SDMMC interface\n");
         // GPIOs 15, 2, 4, 12, 13 should have external 10k pull-ups.
         // Internal pull-ups are not sufficient. However, enabling internal pull-ups
         // does make a difference some boards, so we do that here.

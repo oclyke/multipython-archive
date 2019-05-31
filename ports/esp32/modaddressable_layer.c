@@ -38,13 +38,16 @@ MP_DEFINE_CONST_FUN_OBJ_2(addressable_layer_mode_obj, addressable_layer_mode);
 STATIC mp_obj_t addressable_layer_set(mp_obj_t self_in, mp_obj_t start_index_obj, mp_obj_t colors);
 MP_DEFINE_CONST_FUN_OBJ_3(addressable_layer_set_obj, addressable_layer_set);
 
+STATIC mp_obj_t addressable_layer_add_artdmx_info(mp_obj_t self_in, mp_obj_t info_in);
+MP_DEFINE_CONST_FUN_OBJ_2(addressable_layer_add_artdmx_info_obj, addressable_layer_add_artdmx_info);
+
 STATIC void addressable_layer_print( const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind );
 
 STATIC const mp_rom_map_elem_t addressable_layer_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_mode), MP_ROM_PTR(&addressable_layer_mode_obj) },
     { MP_ROM_QSTR(MP_QSTR_set), MP_ROM_PTR(&addressable_layer_set_obj) },
     
-    // { MP_ROM_QSTR(MP_QSTR_artnet), MP_ROM_PTR(&addressable_fixture_artnet_obj) },
+    { MP_ROM_QSTR(MP_QSTR_add_artdmx_info), MP_ROM_PTR(&addressable_layer_add_artdmx_info_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_SKIP), MP_ROM_INT(MODADD_OP_SKIP) },
     { MP_ROM_QSTR(MP_QSTR_SET), MP_ROM_INT(MODADD_OP_SET) },
@@ -195,6 +198,62 @@ STATIC mp_obj_t addressable_layer_set(mp_obj_t self_in, mp_obj_t start_index_obj
     }else{
         mp_raise_TypeError("color should be a list of lists of integers\n");
         return mp_const_none;
+    }
+
+    return mp_const_none;
+}
+
+STATIC mp_obj_t addressable_layer_add_artdmx_info(mp_obj_t self_in, mp_obj_t info_in){
+    addressable_layer_obj_t* self = (addressable_layer_obj_t*)MP_OBJ_TO_PTR(self_in);
+
+    if( !mp_obj_is_type(info_in, &addressable_layer_artdmx_infoObj_type) ){
+        printf("Error: the 'info_in' argument must be an ArtDMX info object type\n");
+        return mp_const_none;
+    }
+    addressable_layer_artdmx_info_obj_t* info_template = (addressable_layer_artdmx_info_obj_t*)info_in;
+
+    addressable_layer_artdmx_info_obj_t* info = (addressable_layer_artdmx_info_obj_t*)addressable_layer_artdmx_info_make_new(&addressable_layer_artdmx_infoObj_type,0, 0, NULL ); // Make a "copy" of the info, to try to avoid problems with multiple references to the same info
+    if( !mp_obj_is_type(info, &addressable_layer_artdmx_infoObj_type) ){
+        printf("Error: could not copy information from the artdmx info object\n");
+        return mp_const_none;
+    }
+    info->cpl = info_template->cpl;
+    info->leds = info_template->leds;
+    info->portAddress = info_template->portAddress;
+    info->start_channel = info_template->start_channel;
+    info->start_index = info_template->start_index;
+    info->cpl = info_template->cpl;
+    info->layer = self;
+
+    // printf("copied dmx info object with: leds = %d, portAddress = %d, start_index = %d, start_channel = %d, layer = 0x%08X\n",info->leds, info->portAddress, info->start_index, info->start_channel, (uint32_t)info->layer);
+    
+    
+
+    addressable_layer_artdmx_info_node_t* node = addressable_layer_artdmx_new_info_node();
+    if(node == NULL){
+        printf("Error: no memory for the new node\n");
+        return mp_const_none;
+    }
+    node->artdmx_info = info;
+    info->layer = self;         // with this setup it is BAD to re-use info objects that are created by the 'addressable_layer_artdmx_info_make_new' function. B/C this only adds them 
+
+    // if( self->artdmx_head == NULL ){
+    //     self->artdmx_head = node;
+    // }else{
+    //     if( addressable_layer_artdmx_info_node_append( self->artdmx_head, node ) != 0){
+    //         printf("Error linking the new node into the LL\n");
+    //         return mp_const_none;
+    //     }
+    // }
+
+    // Instead link this into a single LL of all artnet info. todo: need to consider what happens when the user deletes a layer...
+    if( artdmx_info_head == NULL ){
+        artdmx_info_head = node;
+    }else{
+        if( addressable_layer_artdmx_info_node_append( artdmx_info_head, node ) != 0){
+            printf("Error linking the new node into the LL\n");
+            return mp_const_none;
+        } 
     }
 
     return mp_const_none;
