@@ -45,10 +45,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "ota/wifi_sta.h"   // WIFI module configuration, connecting to an access point.
 #include "ota/iap_https.h"  // Coordinating firmware updates
 
-
-
 #define TAG "Mach1"
 
+char    mach1_device_name[MACH1_DEVICE_NAME_MAX_LEN];   // Will fill this at run-time with snprintf("Mach1 LED %02X.%02X.%02X.%02X.%02X.%02X", chip_id[0], chip_id[1], chip_id[2], chip_id[3], chip_id[4], chip_id[5] );
+uint8_t mach1_chip_id[6];                                     // Set this at runtime with esp_efuse_mac_get_default(chip_id)
 
 #define OTA_SERVER_HOST_NAME      "reverb.echoictech.com"
 #define OTA_SERVER_METADATA_PATH  "/ota/ota.txt"
@@ -477,18 +477,51 @@ STATIC mp_obj_t mach1_firmware(size_t n_args, const mp_obj_t *pos_args, mp_map_t
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mach1_firmware_obj, 0, mach1_firmware);
 
+STATIC mp_obj_t mach1_input_states( void ){
+    mp_obj_t input_states = mp_obj_new_dict(7);
 
+    const char* str_key_brk = "BRK";
+    const char* str_key_lts = "LTS";
+    const char* str_key_rts = "RTS";
+    const char* str_key_rev = "REV";
+    const char* str_key_usw1 = "USW1";
+    const char* str_key_usw2 = "USW2";
+    const char* str_key_usw3 = "USW3";
+
+    mp_obj_t key_brk = mp_obj_new_str_via_qstr(str_key_brk, strlen(str_key_brk));
+    mp_obj_t key_lts = mp_obj_new_str_via_qstr(str_key_lts, strlen(str_key_lts));
+    mp_obj_t key_rts = mp_obj_new_str_via_qstr(str_key_rts, strlen(str_key_rts));
+    mp_obj_t key_rev = mp_obj_new_str_via_qstr(str_key_rev, strlen(str_key_rev));
+    mp_obj_t key_usw1 = mp_obj_new_str_via_qstr(str_key_usw1, strlen(str_key_usw1));
+    mp_obj_t key_usw2 = mp_obj_new_str_via_qstr(str_key_usw2, strlen(str_key_usw2));
+    mp_obj_t key_usw3 = mp_obj_new_str_via_qstr(str_key_usw3, strlen(str_key_usw3));
+
+    mp_obj_t brk = mp_obj_new_int((mp_int_t)gpio_get_level(MACH1_INSIG_BRK_PIN));
+    mp_obj_t lts = mp_obj_new_int((mp_int_t)gpio_get_level(MACH1_INSIG_LTS_PIN));
+    mp_obj_t rts = mp_obj_new_int((mp_int_t)gpio_get_level(MACH1_INSIG_RTS_PIN));
+    mp_obj_t rev = mp_obj_new_int((mp_int_t)gpio_get_level(MACH1_INSIG_REV_PIN));
+    mp_obj_t usw1 = mp_obj_new_int((mp_int_t)gpio_get_level(MACH1_USW1_PIN));
+    mp_obj_t usw2 = mp_obj_new_int((mp_int_t)gpio_get_level(MACH1_USW2_PIN));
+    mp_obj_t usw3 = mp_obj_new_int((mp_int_t)gpio_get_level(MACH1_USW3_PIN));
+
+    mp_obj_dict_store( input_states,    key_brk,    brk     );
+    mp_obj_dict_store( input_states,    key_lts,    lts     );
+    mp_obj_dict_store( input_states,    key_rts,    rts     );
+    mp_obj_dict_store( input_states,    key_rev,    rev     );
+    mp_obj_dict_store( input_states,    key_usw1,   usw1    );
+    mp_obj_dict_store( input_states,    key_usw2,   usw2    );
+    mp_obj_dict_store( input_states,    key_usw3,   usw3    );
+
+    return input_states;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(mach1_input_states_obj, mach1_input_states);
 
 STATIC const mp_rom_map_elem_t mp_module_mach1_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_mach1) },
     { MP_ROM_QSTR(MP_QSTR__boot), MP_ROM_PTR(&mach1__boot_obj) },
     { MP_ROM_QSTR(MP_QSTR_system), MP_ROM_PTR(&mach1_system_obj) },
     { MP_ROM_QSTR(MP_QSTR_firmware), MP_ROM_PTR(&mach1_firmware_obj) },
-    // { MP_ROM_QSTR(MP_QSTR_start), MP_ROM_PTR(&multipython_start_obj) },
-    // { MP_ROM_QSTR(MP_QSTR_stop), MP_ROM_PTR(&multipython_stop_obj) },
-    // { MP_ROM_QSTR(MP_QSTR_suspend), MP_ROM_PTR(&multipython_suspend_obj) },
-    // { MP_ROM_QSTR(MP_QSTR_resume), MP_ROM_PTR(&multipython_resume_obj) },
-    // { MP_ROM_QSTR(MP_QSTR_get), MP_ROM_PTR(&multipython_get_obj) },
+    { MP_ROM_QSTR(MP_QSTR_input_states), MP_ROM_PTR(&mach1_input_states_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_RISING_BRK), MP_ROM_INT(MACH1_COND_RISING_BRK) },
     { MP_ROM_QSTR(MP_QSTR_RISING_LTS), MP_ROM_INT(MACH1_COND_RISING_LTS) },

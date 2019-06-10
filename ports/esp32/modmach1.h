@@ -31,6 +31,10 @@ typedef struct _mach1_firmware_info_t {
     uint8_t patch;
 }mach1_firmware_info_t;
 
+#define MACH1_DEVICE_NAME_MAX_LEN  (32)                         // SAMPLE_DEVICE_NAME + 6 MAC address numbers (2 hex chars each, max) + 5 separating .s + NULL
+extern char     mach1_device_name[MACH1_DEVICE_NAME_MAX_LEN];   // Will fill this at run-time with snprintf("Mach1 LED %02X.%02X.%02X.%02X.%02X.%02X", chip_id[0], chip_id[1], chip_id[2], chip_id[3], chip_id[4], chip_id[5] );
+extern uint8_t  mach1_chip_id[6];                               // Set this at runtime with esp_efuse_mac_get_default(chip_id)
+
 
 
 

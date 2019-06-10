@@ -40,8 +40,7 @@
 #include "lib/utils/pyexec.h"
 #include "mphalport.h"
 
-// #include "bt_spp.h"
-#include "ble_spp.h"
+#include "service_nus.h"
 
 TaskHandle_t mp_main_task_handle;
 
@@ -69,37 +68,10 @@ void mp_hal_stdout_tx_strn(const char *str, uint32_t len) {
     if (release_gil) {
         MP_THREAD_GIL_EXIT();
     }
-    for (uint32_t i = 0; i < len; ++i) { // Send via UART
+    for (uint32_t i = 0; i < len; ++i) {    // Send via UART
         uart_tx_one_char(str[i]);
-        // if( bt_spp_ready ){
-        //     esp_spp_write( bt_spp_handle, 1, (uint8_t*)(str + i) );
-        // }
     }
-    if( ble_spp_is_connected ){
-        // // esp_ble_gatts_send_indicate(ble_spp_gatts_if, ble_spp_conn_id, ble_spp_handle_table[SPP_IDX_SPP_DATA_NTY_VAL],len, (uint8_t*)str, false);
-        // const char* msg = "send_dat";
-        // esp_ble_gatts_send_indicate(ble_spp_gatts_if, ble_spp_conn_id, ble_spp_handle_table[SPP_IDX_SPP_DATA_NTY_VAL], strlen(msg), (uint8_t*)msg, false);
-        
-        if( (len != 0) && ( str != NULL ) ){
-
-            uint8_t ble_len = len;
-            if(ble_len >= ble_spp_mtu_size - 3){
-                ble_len = ble_spp_mtu_size - 3;
-            }
-
-            // printf("send lensgth: %d. Send msg: %s\n",ble_len, str);
-
-            esp_ble_gatts_send_indicate(ble_spp_gatts_if, ble_spp_conn_id, ble_spp_handle_table[SPP_IDX_SPP_DATA_NTY_VAL], ble_len, (uint8_t*)str, false);
-            // todo: break up large xfers into multiple smaller xfers
-        }
-    }
-
-    // if( bt_spp_ready ){
-    //     if( (str != NULL) && (len != 0) ){
-    //         esp_spp_write( bt_spp_handle, len, (uint8_t*)str );
-    //     }        
-    //     // esp_spp_write( bt_spp_handle, strlen(test_text), (uint8_t*)test_text );
-    // }
+    nus_rx_notify( str, len );              // Send via BLE NUS
 
     if (release_gil) {
         MP_THREAD_GIL_ENTER();

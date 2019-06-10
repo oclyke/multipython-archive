@@ -54,6 +54,7 @@
 #include "mpthreadport.h"
 
 #include "mpstate_spiram.h"
+#include "modmach1.h"
 
 // MicroPython runs as a task under FreeRTOS
 #define MP_TASK_PRIORITY        (ESP_TASK_PRIO_MIN + 1)
@@ -174,21 +175,18 @@ soft_reset:
     goto soft_reset;
 }
 
-// extern void bt_spp_test( void );
-extern void test_ble_spp( void );
+extern void ble_server_begin( void );
 void app_main(void) {
     nvs_flash_init();
-    // bt_spp_test();
-    test_ble_spp();
+
+    esp_efuse_mac_get_default(mach1_chip_id);
+    snprintf(mach1_device_name, MACH1_DEVICE_NAME_MAX_LEN, "Mach1_LED_%02X.%02X.%02X.%02X.%02X.%02X", mach1_chip_id[0], mach1_chip_id[1], mach1_chip_id[2], mach1_chip_id[3], mach1_chip_id[4], mach1_chip_id[5] );
+    printf("Hello from %s\n", mach1_device_name);
+
+    ble_server_begin();
+
     xTaskCreatePinnedToCore(mp_task, "mp_task", MP_TASK_STACK_LEN, NULL, MP_TASK_PRIORITY, &mp_main_task_handle, MICROPY_REPL_CORE );
 }
-
-// // extern void bt_spp_test( void );
-// extern void test_ble_spp( void );
-// void app_main(void) {
-//     // bt_spp_test();
-//     test_ble_spp();
-// }
 
 void nlr_jump_fail(void *val) {
     printf("NLR jump failed, val=%p\n", val);

@@ -34,24 +34,37 @@ dmx_layer.add_artdmx_info(dmx_info_3)
 
 stat_dmx_layer.add_artdmx_info(stat_dmx_info)
 
-with open('artnet_ssid.txt','r') as f:
-    ssid = f.read()
+with open('artnet_use_sta.txt','r') as f:
+    use_sta = f.read()
 
-with open('artnet_password.txt','r') as f:
-    password = f.read()
+if( use_sta == '1' ):
+    with open('artnet_ssid.txt','r') as f:
+        ssid = f.read()
 
-print('Attempting to connect to network:')
-print('\tSSID: ' + str(ssid))
-print('\tPASS: ' + str(password))
-print('')
-print('Change SSID and PASS by editing \'artnet_ssid.txt\' and \'artnet_password.txt\' respectively')
+    with open('artnet_password.txt','r') as f:
+        password = f.read()
 
-artnet.start(network.STA_IF)
-sta_if = network.WLAN(network.STA_IF)
-sta_if.active()
-sta_if.connect(ssid,password)
+    print('Attempting to connect to network:')
+    print('\tSSID: ' + str(ssid))
+    print('\tPASS: ' + str(password))
+    print('')
+    print('Change SSID and PASS by editing \'artnet_ssid.txt\' and \'artnet_password.txt\' respectively')
 
-time.sleep(5)
+    artnet.start(network.STA_IF)
+    sta_if = network.WLAN(network.STA_IF)
+    sta_if.active()
+    sta_if.connect(ssid,password)
 
-print('Network information: (use IP address {first entry} to direct ArtNet packets')
-print(sta_if.ifconfig())
+    time.sleep(5)
+
+    print('Network information: (use IP address {first entry} to direct ArtNet packets')
+    print(sta_if.ifconfig())
+else:
+    artnet.start(network.AP_IF)
+    ap_if = network.WLAN(network.AP_IF)
+    ap_if.active()
+
+    time.sleep(5)
+
+    print('Created Access Point: (use IP address {first entry} to direct ArtNet packets')
+    print(ap_if.ifconfig())

@@ -72,6 +72,9 @@ INC += -I$(TOP)/lib/netutils
 INC += -I$(TOP)/lib/timeutils
 INC += -I$(TOP)/ports/esp32/ota
 # INC += -I../../../jsmn
+INC += -I$(TOP)/ports/esp32/ble
+INC += -I$(TOP)/ports/esp32/ble/service_mach1
+INC += -I$(TOP)/ports/esp32/ble/service_nus
 INC += -I$(BUILD)
 
 INC_ESPCOMP += -I$(ESPCOMP)/bootloader_support/include
@@ -241,13 +244,11 @@ SRC_C = \
 	ota/iap.c \
 	ota/wifi_sta.c \
 	ota/wifi_tls.c \
-	bt_spp.c \
-	ble_spp.c \
-	modevent.c \
+	ble/ble_server.c \
+	ble/service_mach1/service_mach1.c \
+	ble/service_nus/service_nus.c \
 	$(SRC_MOD)
 
-# 	static_spp_example.S
-# modota.c
 
 EXTMOD_SRC_C = $(addprefix extmod/,\
 	modonewire.c \
